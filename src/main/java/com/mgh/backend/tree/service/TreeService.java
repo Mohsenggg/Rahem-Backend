@@ -9,11 +9,14 @@ import com.mgh.backend.tree.domain.entity.Tree;
 import com.mgh.backend.tree.repository.NodeRepo;
 import com.mgh.backend.tree.repository.TreeRepo;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -23,6 +26,7 @@ import java.util.stream.Collectors;
 @Transactional
 public class TreeService {
 
+    Logger log = LoggerFactory.getLogger(TreeService.class);
     private final TreeRepo treeRepository;
     private final NodeRepo nodeRepository;
 
@@ -72,16 +76,46 @@ public class TreeService {
                 );
             }
 
+            Map<Long, String> idToNameMap = treeWithNodesDTO.getNodeDTOS().stream()
+                    .collect(Collectors.toMap(
+                            NodeDTO::getNodeId,
+                            NodeDTO::getNodeName
+                    ));
+
             Node node = new Node();
             node.setNodeId(n.getNodeId());
             node.setParentId(n.getParentId());
             node.setLevel(n.getLevel());
             node.setNodeName(n.getNodeName());
             node.setTree(savedTree);
+
+            // ✅ Resolve parent name
+            if (n.getParentId() != 0) {
+                String parentName = idToNameMap.get(n.getParentId());
+                node.setNodeParentName(parentName);
+            } else {
+                node.setNodeParentName("أحمد"); // root node
+            }
+
             return node;
         }).toList();
 
-        nodeRepository.saveAll(nodes);
+//        nodeRepository.saveAll(nodes);
+
+
+        nodes.forEach(n ->
+                log.info("Saving node: id={}, parentId={}, level={}, name={}",
+                        n.getNodeId(), n.getParentId(), n.getLevel(), n.getNodeName())
+        );
+        for (Node node : nodes) {
+            try {
+                nodeRepository.saveAndFlush(node); // 🔥 forces immediate DB insert
+            } catch (Exception e) {
+                log.error("Failed node: {}", node, e);
+                throw e;
+            }
+        }
+
     }
 
 

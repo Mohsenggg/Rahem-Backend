@@ -16,12 +16,16 @@ public class UserAuthAdapter implements UserDetails {
         this.userAuth = userAuth;
     }
 
+    public UserAuth getUserAuth() {
+        return userAuth;
+    }
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(
                 new SimpleGrantedAuthority("ROLE_" + userAuth.getRole().name())
         );
     }
+
 
     @Override
     public String getPassword() {

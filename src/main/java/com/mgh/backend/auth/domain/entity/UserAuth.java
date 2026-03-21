@@ -6,6 +6,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDateTime;
 
 
 @Entity
@@ -30,6 +33,9 @@ public class UserAuth {
     @Column(nullable = false)
     private String password;
 
+    @Column
+    private String phone;
+
     private String fullName;
 
     @Enumerated(EnumType.STRING)
@@ -41,4 +47,8 @@ public class UserAuth {
 
     @Column(nullable = false)
     private boolean locked = false;
+
+    @CreationTimestamp
+    @Column(updatable = false)
+    private LocalDateTime createdAt;
 }

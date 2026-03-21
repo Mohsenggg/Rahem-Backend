@@ -6,6 +6,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -21,6 +23,8 @@ import java.io.IOException;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
 
@@ -36,10 +40,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
+        if (log.isDebugEnabled()) {
+            log.debug("Incoming request: method={} path={}", request.getMethod(), request.getRequestURI());
+        }
+
         // Read Authorization header from the incoming request
         final String authHeader = request.getHeader("Authorization");
         final String jwt;
         final String username;
+
+        UserDetails userDetails;
 
         // ---------------------------------------------------------
         // 1. Allow CORS preflight requests to pass through untouched
@@ -47,6 +57,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // Browsers send OPTIONS requests before actual calls.
         // These requests do not carry authentication information.
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            log.debug("Skipping JWT filter for CORS preflight OPTIONS");
             filterChain.doFilter(request, response);
             return;
         }
@@ -57,6 +68,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // ---------------------------------------------------------
         // This allows public endpoints to work without JWT
         if (authHeader == null || !authHeader.toLowerCase().startsWith("bearer ")) {
+            log.debug("No Bearer token found (Authorization header missing or not Bearer). HeaderPresent={}",
+                    authHeader != null);
             filterChain.doFilter(request, response);
             return;
         }
@@ -65,6 +78,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 3. Extract raw JWT token from the Authorization header
         // ---------------------------------------------------------
         jwt = authHeader.substring(7).trim();
+        log.debug("Bearer token detected (len={})", jwt.length());
 
         try {
             // ---------------------------------------------------------
@@ -74,11 +88,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // Any malformed token, invalid signature, or unsupported
             // JWT will throw an exception here
             username = jwtService.extractUsername(jwt);
+            userDetails = userDetailsService.loadUserByUsername(username);
+            log.debug("JWT parsed. subject(username)={} authorities={}", username, userDetails.getAuthorities());
         } catch (JwtException | IllegalArgumentException ex) {
             // ---------------------------------------------------------
             // 5. Token is invalid or malformed → reject request
             // ---------------------------------------------------------
             SecurityContextHolder.clearContext();
+            log.debug("JWT parsing/validation failed: {}", ex.getMessage());
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or malformed JWT");
             return;
         }
@@ -88,9 +105,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // ---------------------------------------------------------
         Authentication existingAuth = SecurityContextHolder.getContext().getAuthentication();
 
-        if (username != null && (existingAuth == null || !existingAuth.isAuthenticated())) {
+        if (username != null && existingAuth == null) {
 
-            UserDetails userDetails;
             try {
                 // ---------------------------------------------------------
                 // 7. Load user details from database or identity store
@@ -102,6 +118,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // 8. JWT refers to a non-existing user → reject
                 // ---------------------------------------------------------
                 SecurityContextHolder.clearContext();
+                log.debug("User not found for token subject(username)={}", username);
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "User not found for JWT");
                 return;
             }
@@ -121,6 +138,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // Ensures token is not expired and still belongs to this user
             if (!jwtService.isTokenValid(jwt, userDetails)) {
                 SecurityContextHolder.clearContext();
+                log.debug("JWT not valid for username={} (expired/subject mismatch/signature)", username);
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Expired or invalid JWT");
                 return;
             }
@@ -136,6 +154,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     || !userDetails.isCredentialsNonExpired()) {
 
                 SecurityContextHolder.clearContext();
+                log.debug("User account not in good standing. enabled={} locked={}",
+                        userDetails.isEnabled(), userDetails.isAccountNonLocked());
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "User account is not in good standing");
                 return;
             }
@@ -159,11 +179,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // ---------------------------------------------------------
             // This makes the user available to controllers & security rules
             SecurityContextHolder.getContext().setAuthentication(authToken);
+            log.debug("SecurityContext authentication set for username={}", username);
         }
 
         // ---------------------------------------------------------
         // 14. Continue request processing
         // ---------------------------------------------------------
+        log.debug("Continuing filter chain");
         filterChain.doFilter(request, response);
     }
 

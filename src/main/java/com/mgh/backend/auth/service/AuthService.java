@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,8 @@ public class AuthService {
                 .fullName(registerRequestDto.getFullName())
 //                .lastName(request.getLastName())
                 .password(passwordEncoder.encode(registerRequestDto.getPassword()))
+                .enabled(true)
+                .locked(false)
                 .role(Role.USER)
                 .build();
 
@@ -53,50 +56,69 @@ public class AuthService {
 
     private Authentication getAuthentication(AuthRequestDto request) {
 
-        // you should define the config for the Authentication Manager
-        // AuthManager needs to know how to authenticate users.
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getUsername(),
-                        request.getPassword()
-                )
-        );
-        return authentication;
-    }
-
-
-    public AuthResponseDto login(AuthRequestDto request) {
-
-        // HTTP Request → SecurityFilterChain → AuthenticationManager → Your AuthenticationProvider
-        Authentication authentication = getAuthentication(request);
-
-
-        if (authentication.isAuthenticated()) {
-            UserAuth userAuth = userAuthRepo.findByUsername(request.getUsername()).orElseThrow();
-
-            UserAuthAdapter userAuthAdapter = new UserAuthAdapter(userAuth);
-
-            TokenExpiryDto jwtTokenWithExpiry = jwtService.generateToken(userAuthAdapter);
-            String jwtToken = jwtTokenWithExpiry.getToken();
-            Instant expiration = jwtTokenWithExpiry.getExpiry();
-
-
-            AuthResponseDto authResponseDto =  AuthResponseDto.builder()
-                    .token(jwtToken)
-                    .user(userToUserDto(userAuth))
-                    .expiresIn(expiration)
-                    .build();
-
-            return authResponseDto;
-
-        } else {
-            throw new BadCredentialsException("Invalid username or password");
+        try {
+            return authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getUsername(),
+                            request.getPassword()
+                    )
+            );
+        } catch (DisabledException e) {
+            throw new RuntimeException("User account is disabled");
         }
     }
 
-    // ===================================================================
-    // ===================================================================
+//
+//    public AuthResponseDto login(AuthRequestDto request) {
+//
+//        // HTTP Request → SecurityFilterChain → AuthenticationManager → Your AuthenticationProvider
+//        Authentication authentication = getAuthentication(request);
+//
+//
+//        if (authentication.isAuthenticated()) {
+//            UserAuth userAuth = userAuthRepo.findByUsername(request.getUsername()).orElseThrow();
+//
+//            UserAuthAdapter userAuthAdapter = new UserAuthAdapter(userAuth);
+//
+//            TokenExpiryDto jwtTokenWithExpiry = jwtService.generateToken(userAuthAdapter);
+//            String jwtToken = jwtTokenWithExpiry.getToken();
+//            Instant expiration = jwtTokenWithExpiry.getExpiry();
+//
+//
+//            AuthResponseDto authResponseDto =  AuthResponseDto.builder()
+//                    .token(jwtToken)
+//                    .user(userToUserDto(userAuth))
+//                    .expiresIn(expiration)
+//                    .build();
+//
+//            return authResponseDto;
+//
+//        } else {
+//            throw new BadCredentialsException("Invalid username or password");
+//        }
+//    }
 
+    public AuthResponseDto login(AuthRequestDto request) {
+
+        // 1️⃣ Authenticate (throws if invalid)
+        Authentication authentication = getAuthentication(request);
+
+        // 2️⃣ Authentication succeeded → get principal
+        UserAuthAdapter userAuthAdapter = (UserAuthAdapter) authentication.getPrincipal();
+        UserAuth userAuth = userAuthAdapter.getUserAuth();
+
+        // 3️⃣ Generate JWT
+        TokenExpiryDto tokenWithExpiry = jwtService.generateToken(userAuthAdapter);
+
+        return AuthResponseDto.builder()
+                .token(tokenWithExpiry.getToken())
+                .user(userToUserDto(userAuth))
+                .expiresIn(tokenWithExpiry.getExpiry())
+                .build();
+    }
+
+    // ===================================================================
+    // ===================================================================
 
 
     private UserDataDto userToUserDto(UserAuth userAuth) {

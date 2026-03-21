@@ -1,4 +1,6 @@
 package com.mgh.backend.tree.domain.entity;
+import com.mgh.backend.tree.domain.enums.Gender;
+import com.mgh.backend.tree.domain.enums.TreeNodeStatus;
 import jakarta.persistence.Entity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -23,21 +25,43 @@ public class Node {
     @Column(name = "node_id", nullable = false)
     private Long nodeId;
 
+    @Column(name = "node_name", nullable = false)
+    private String nodeName;
+
     @Column(name = "parent_id", nullable = false)
     private Long parentId;
 
-    @Column(name = "level", nullable = false)
-    private Long level;
+    @Column(name = "node_parent_name", nullable = false)
+    private String nodeParentName; // familyName
 
-    @Column(name = "node_name", nullable = false)
-    private String nodeName;
+    @Column(name = "partner_id")
+    private Long partnerId;
+
+    @Column(name = "partner_name")
+    private Gender partnerName;
+
+    @Column(name = "user_id")
+    private Long userId; // Link to the authentication user once registration is approved.
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tree_id", nullable = false)
     private Tree tree;
 
-    @Column(name = "is_active", nullable = false)
-    private Boolean isActive = true;
+    @Column(name = "level", nullable = false)
+    private Long level;
+
+    @Column(name = "gender")
+    private Gender gender;
+
+    @Column(name = "invitation_code", length = 512)
+    private String invitationCode;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TreeNodeStatus status = TreeNodeStatus.INACTIVE;
+
+    @Column(name = "is_alive")
+    private Boolean isAlive;
 
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted = false;
@@ -47,4 +71,10 @@ public class Node {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @Column(name = "created_by")
+    private Long createdBy; // userId
+
+    @Column(name = "updated_by")
+    private Long updatedBy; // userId
 }
