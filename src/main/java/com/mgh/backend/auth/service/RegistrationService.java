@@ -1,43 +1,42 @@
-package com.mgh.backend.tree.service;
+package com.mgh.backend.auth.service;
 
+import com.mgh.backend.auth.domain.dto.register.*;
 import com.mgh.backend.auth.domain.entity.UserAuth;
 import com.mgh.backend.auth.domain.entity.UserProfile;
 import com.mgh.backend.auth.domain.enums.Role;
 import com.mgh.backend.auth.repository.UserAuthRepo;
 import com.mgh.backend.auth.repository.UserProfileRepository;
-import com.mgh.backend.tree.domain.dto.RegistrationInitiateRequestDto;
-import com.mgh.backend.tree.domain.dto.RegistrationInitiateResponseDto;
-import com.mgh.backend.tree.domain.dto.RegistrationSubmitRequestDto;
-import com.mgh.backend.tree.domain.entity.RegisterForm;
+import com.mgh.backend.auth.domain.entity.RegisterForm;
 import com.mgh.backend.tree.domain.entity.Node;
-import com.mgh.backend.tree.domain.enums.RegisterStatus;
+import com.mgh.backend.auth.domain.enums.RegisterStatus;
 import com.mgh.backend.tree.domain.enums.TreeNodeStatus;
-import com.mgh.backend.tree.repository.RegisterFormRepository;
+import com.mgh.backend.auth.repository.RegisterFormRepository;
 import com.mgh.backend.tree.repository.NodeRepo;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.Base64;
 
 @Service
 public class RegistrationService {
 
-    private final InvitationService invitationService;
     private final NodeRepo nodeRepo;
     private final RegisterFormRepository registerFormRepository;
     private final UserAuthRepo userAuthRepo;
     private final UserProfileRepository userProfileRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public RegistrationService(InvitationService invitationService,
+
+    public RegistrationService(
                                NodeRepo nodeRepo,
                                RegisterFormRepository registerFormRepository,
                                UserAuthRepo userAuthRepo,
                                UserProfileRepository userProfileRepository,
                                PasswordEncoder passwordEncoder) {
-        this.invitationService = invitationService;
         this.nodeRepo = nodeRepo;
         this.registerFormRepository = registerFormRepository;
         this.userAuthRepo = userAuthRepo;
@@ -47,7 +46,7 @@ public class RegistrationService {
 
     @Transactional(readOnly = true)
     public RegistrationInitiateResponseDto initiateRegistration(RegistrationInitiateRequestDto request) {
-        Long nodeId = invitationService.validateAndExtractNodeId(request.getInvitationCode());
+        Long nodeId = validateAndExtractNodeId(request.getInvitationCode());
 
         Node node = nodeRepo.findById(nodeId)
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
@@ -60,8 +59,9 @@ public class RegistrationService {
         if (status == TreeNodeStatus.INACTIVE) {
             return RegistrationInitiateResponseDto.builder()
                     .firstName(node.getNodeName())
-                    .familyName(node.getNodeParentName())
+                    .parentName(node.getNodeParentName())
                     .status(status)
+                    .message("Register Now")
                     .build();
         } else if (status == TreeNodeStatus.PENDING) {
             return RegistrationInitiateResponseDto.builder()
@@ -76,9 +76,18 @@ public class RegistrationService {
         }
     }
 
+
+
     @Transactional
-    public void submitRegistration(RegistrationSubmitRequestDto request) {
-        Long nodeId = invitationService.validateAndExtractNodeId(request.getInvitationCode());
+    public String directApprove(RegistrationSubmitRequestDto request) {
+        Long registerFormId = submitRegistration(request);
+        String fullname = approveRegistration(registerFormId, "Self Approved");
+        return fullname;
+    }
+
+    @Transactional
+    public Long submitRegistration(RegistrationSubmitRequestDto request) {
+        Long nodeId = validateAndExtractNodeId(request.getInvitationCode());
 
         Node node = nodeRepo.findById(nodeId)
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
@@ -110,19 +119,21 @@ public class RegistrationService {
                 .status(RegisterStatus.SUBMITTED)
                 .build();
 
-        registerFormRepository.save(registerForm);
+        RegisterForm savedForm = registerFormRepository.save(registerForm);
 
         node.setStatus(TreeNodeStatus.PENDING);
         nodeRepo.save(node);
+
+        return savedForm.getId();
     }
 
     @Transactional
-    public void approveRegistration(Long registerFormId, String approvedBy) {
+    public String approveRegistration(Long registerFormId, String approvedBy) {
         RegisterForm registerForm = registerFormRepository.findById(registerFormId)
                 .orElseThrow(() -> new EntityNotFoundException("Register form not found"));
 
         if (registerForm.getStatus() == RegisterStatus.APPROVED) {
-            return;
+            return approvedBy;
         }
 
         Node node = nodeRepo.findById(registerForm.getNodeId())
@@ -140,7 +151,7 @@ public class RegistrationService {
                 .locked(false)
                 .build();
 
-        userAuthRepo.save(userAuth);
+        UserAuth savedUser = userAuthRepo.save(userAuth);
 
         UserProfile userProfile = UserProfile.builder()
                 .userAuth(userAuth)
@@ -149,7 +160,7 @@ public class RegistrationService {
                 .address(registerForm.getAddress())
                 .build();
 
-        userProfileRepository.save(userProfile);
+        UserProfile savedProfile = userProfileRepository.save(userProfile);
 
         node.setUserId(userAuth.getId());
         node.setStatus(TreeNodeStatus.ACTIVATED);
@@ -159,6 +170,45 @@ public class RegistrationService {
         registerForm.setApprovedAt(LocalDateTime.now());
         registerForm.setApprovedBy(approvedBy);
         registerFormRepository.save(registerForm);
+
+        return savedUser.getFullName();
+    }
+
+
+    public InvitationCodeResponseDto generateInvitationCode(InvitationCodeGenerateRequestDto request) {
+
+        Long nodeId = request.getNodeId();
+        Node node = nodeRepo.findById(nodeId)
+                .orElseThrow(() -> new EntityNotFoundException("Node not found"));
+
+        String payload = "nodeId:" + node.getId();
+        String encrypted = Base64.getUrlEncoder().encodeToString(payload.getBytes(StandardCharsets.UTF_8));
+
+        node.setInvitationCode(encrypted);
+        node.setStatus(TreeNodeStatus.INACTIVE);
+        nodeRepo.save(node);
+
+        return new InvitationCodeResponseDto(encrypted);
+    }
+
+    public Long validateAndExtractNodeId(String invitationCode) {
+        String decoded;
+        try {
+            decoded = new String(Base64.getUrlDecoder().decode(invitationCode), StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid invitation code");
+        }
+
+        if (!decoded.startsWith("nodeId:")) {
+            throw new IllegalArgumentException("Invalid invitation code");
+        }
+
+        String idPart = decoded.substring("nodeId:".length());
+        try {
+            return Long.parseLong(idPart);
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("Invalid invitation code");
+        }
     }
 }
 

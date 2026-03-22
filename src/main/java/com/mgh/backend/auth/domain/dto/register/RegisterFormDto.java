@@ -1,6 +1,6 @@
-package com.mgh.backend.tree.domain.dto;
+package com.mgh.backend.auth.domain.dto.register;
 
-import com.mgh.backend.tree.domain.enums.RegisterStatus;
+import com.mgh.backend.auth.domain.enums.RegisterStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

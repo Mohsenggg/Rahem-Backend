@@ -1,4 +1,4 @@
-package com.mgh.backend.tree.domain.enums;
+package com.mgh.backend.auth.domain.enums;
 
 public enum RegisterStatus {
     SUBMITTED,

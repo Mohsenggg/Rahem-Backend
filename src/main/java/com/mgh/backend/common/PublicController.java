@@ -1,4 +1,4 @@
-package com.mgh.backend.tree.controller;
+package com.mgh.backend.common;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

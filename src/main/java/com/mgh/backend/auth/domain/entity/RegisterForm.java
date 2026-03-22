@@ -1,6 +1,6 @@
-package com.mgh.backend.tree.domain.entity;
+package com.mgh.backend.auth.domain.entity;
 
-import com.mgh.backend.tree.domain.enums.RegisterStatus;
+import com.mgh.backend.auth.domain.enums.RegisterStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

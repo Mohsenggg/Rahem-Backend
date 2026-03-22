@@ -1,4 +1,4 @@
-package com.mgh.backend.tree.domain.dto;
+package com.mgh.backend.auth.domain.dto.register;
 
 import com.mgh.backend.tree.domain.enums.TreeNodeStatus;
 import lombok.Builder;
@@ -9,7 +9,7 @@ import lombok.Data;
 public class RegistrationInitiateResponseDto {
 
     private String firstName;
-    private String familyName;
+    private String parentName;
     private TreeNodeStatus status;
     private String message;
 }

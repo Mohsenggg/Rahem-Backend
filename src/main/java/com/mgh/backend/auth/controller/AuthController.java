@@ -4,9 +4,13 @@ package com.mgh.backend.auth.controller;
 import com.mgh.backend.auth.domain.dto.AuthRequestDto;
 import com.mgh.backend.auth.domain.dto.AuthResponseDto;
 import com.mgh.backend.auth.domain.dto.RegisterRequestDto;
+import com.mgh.backend.auth.domain.dto.register.*;
 import com.mgh.backend.auth.service.AuthService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.mgh.backend.auth.service.RegistrationService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -15,18 +19,19 @@ import org.springframework.web.bind.annotation.*;
 
 public class AuthController {
 
-    @Autowired
-    AuthService authService;
+    private final RegistrationService registrationService;
+    private final AuthService authService;
+
+    public AuthController(RegistrationService registrationService, AuthService authService) {
+        this.registrationService = registrationService;
+        this.authService = authService;
+    }
 
 
     @PostMapping("/register")
     public ResponseEntity register(@RequestBody RegisterRequestDto request){
-
         return authService.register(request);
-
     }
-
-
 
     @PostMapping("/login")
     public ResponseEntity login(@RequestBody AuthRequestDto request){
@@ -34,5 +39,35 @@ public class AuthController {
         return ResponseEntity.ok(authenticationResponse);
     }
 
+    @PostMapping("/invitation/generate")
+    public ResponseEntity<InvitationCodeResponseDto> generateInvitation(@RequestBody @Valid InvitationCodeGenerateRequestDto request) {
+        InvitationCodeResponseDto response = registrationService.generateInvitationCode(request);
+        return ResponseEntity.ok(response);
+    }
 
+    @PostMapping("/invitation/check")
+    public ResponseEntity<RegistrationInitiateResponseDto> initiate(@RequestBody @Valid RegistrationInitiateRequestDto request) {
+        RegistrationInitiateResponseDto response = registrationService.initiateRegistration(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/register/submit")
+    public ResponseEntity<Void> submit(@RequestBody @Valid RegistrationSubmitRequestDto request) {
+        registrationService.submitRegistration(request);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/register/submit/approve")
+    public ResponseEntity<String> directApprove(@RequestBody @Valid RegistrationSubmitRequestDto request) {
+        String fullName = registrationService.directApprove(request);
+        return ResponseEntity.ok("Welcome "+fullName +" Your Account Created Successfully.");
+    }
+
+    @PostMapping("/{id}/approve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> approve(@PathVariable("id") Long id, Authentication authentication) {
+        String approvedBy = authentication != null ? authentication.getName() : "system";
+        String fullName = registrationService.approveRegistration(id, approvedBy);
+        return ResponseEntity.ok("Welcome "+fullName +" Your Account Created Successfully.");
+    }
 }

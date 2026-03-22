@@ -65,6 +65,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/invitations/**", "/api/registration/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers("/api/trees/**").permitAll()
+                        .requestMatchers("/api/governorates/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exception -> exception

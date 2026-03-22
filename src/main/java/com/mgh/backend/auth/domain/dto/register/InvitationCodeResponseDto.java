@@ -1,4 +1,4 @@
-package com.mgh.backend.tree.domain.dto;
+package com.mgh.backend.auth.domain.dto.register;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
