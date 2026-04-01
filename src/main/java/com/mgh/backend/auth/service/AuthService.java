@@ -7,12 +7,14 @@ import com.mgh.backend.auth.repository.UserAuthRepo;
 import com.mgh.backend.auth.security.service.JwtService;
 import com.mgh.backend.auth.security.adapter.UserAuthAdapter;
 import lombok.RequiredArgsConstructor;
+import org.apache.catalina.User;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -99,6 +101,14 @@ public class AuthService {
 //    }
 
     public AuthResponseDto login(AuthRequestDto request) {
+
+        // ✅ 0️⃣ Manual validation FIRST (before Spring Security)
+        UserAuth user = userAuthRepo.findByUsername(request.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new RuntimeException("Incorrect password");
+        }
 
         // 1️⃣ Authenticate (throws if invalid)
         Authentication authentication = getAuthentication(request);

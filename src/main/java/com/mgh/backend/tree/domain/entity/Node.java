@@ -1,7 +1,7 @@
 package com.mgh.backend.tree.domain.entity;
+
 import com.mgh.backend.tree.domain.enums.Gender;
 import com.mgh.backend.tree.domain.enums.TreeNodeStatus;
-import jakarta.persistence.Entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -22,7 +22,7 @@ public class Node {
     private Long id;
 
     // Business identity (tree logic)
-    @Column(name = "node_id", nullable = false)
+    @Column(name = "node_id", nullable = false, unique = true)
     private Long nodeId;
 
     @Column(name = "node_name", nullable = false)
@@ -38,7 +38,7 @@ public class Node {
     private Long partnerId;
 
     @Column(name = "partner_name")
-    private Gender partnerName;
+    private String partnerName;
 
     @Column(name = "user_id")
     private Long userId; // Link to the authentication user once registration is approved.
@@ -50,6 +50,7 @@ public class Node {
     @Column(name = "level", nullable = false)
     private Long level;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "gender")
     private Gender gender;
 

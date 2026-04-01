@@ -87,6 +87,7 @@ public class TreeService {
             node.setParentId(n.getParentId());
             node.setLevel(n.getLevel());
             node.setNodeName(n.getNodeName());
+            node.setGender(n.getGender());
             node.setTree(savedTree);
 
             // ✅ Resolve parent name
@@ -133,6 +134,7 @@ public class TreeService {
                     dto.setParentId(n.getParentId());
                     dto.setLevel(n.getLevel());
                     dto.setNodeName(n.getNodeName());
+                    dto.setGender(n.getGender());
                     return dto;
                 })
                 .toList();
