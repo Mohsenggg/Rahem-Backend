@@ -5,6 +5,7 @@ import com.mgh.backend.auth.domain.dto.AuthRequestDto;
 import com.mgh.backend.auth.domain.dto.AuthResponseDto;
 import com.mgh.backend.auth.domain.dto.RegisterRequestDto;
 import com.mgh.backend.auth.domain.dto.register.*;
+import com.mgh.backend.auth.security.SecurityUtils;
 import com.mgh.backend.auth.service.AuthService;
 import com.mgh.backend.auth.service.RegistrationService;
 import jakarta.validation.Valid;
@@ -40,8 +41,11 @@ public class AuthController {
     }
 
     @PostMapping("/invitation/generate")
-    public ResponseEntity<InvitationCodeResponseDto> generateInvitation(@RequestBody @Valid InvitationCodeGenerateRequestDto request) {
-        InvitationCodeResponseDto response = registrationService.generateInvitationCode(request);
+    public ResponseEntity<InvitationCodeResponseDto> generateInvitation(
+            @RequestBody @Valid InvitationCodeGenerateRequestDto request,
+            Authentication authentication) {
+        long userId = SecurityUtils.requireUserId(authentication);
+        InvitationCodeResponseDto response = registrationService.generateInvitationCode(request, userId);
         return ResponseEntity.ok(response);
     }
 

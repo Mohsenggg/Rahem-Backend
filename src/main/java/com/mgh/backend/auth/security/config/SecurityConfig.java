@@ -61,8 +61,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         //  .requestMatchers("/api/user/**").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers("/api/auth/invitation/generate").authenticated()
+                        .requestMatchers("/api/invitations/question", "/api/invitations/answer").authenticated()
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/invitations/**", "/api/registration/**").permitAll()
+                        .requestMatchers("/api/registration/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers("/api/trees/**").permitAll()
                         .requestMatchers("/api/governorates/**").permitAll()

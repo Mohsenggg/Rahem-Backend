@@ -1,8 +1,6 @@
 package com.mgh.backend.tree.service;
 
-import com.mgh.backend.auth.domain.dto.register.InvitationCodeGenerateRequestDto;
 import com.mgh.backend.auth.security.adapter.UserAuthAdapter;
-import com.mgh.backend.auth.service.RegistrationService;
 import com.mgh.backend.tree.domain.dto.CreateNodeRequestDto;
 import com.mgh.backend.tree.domain.dto.NodeResponseDto;
 import com.mgh.backend.tree.domain.dto.UpdateNodeRequestDto;
@@ -26,12 +24,10 @@ public class NodeService {
 
     private final NodeRepo nodeRepo;
     private final NodeMapper nodeMapper;
-    private final RegistrationService registrationService;
 
-    public NodeService(NodeRepo nodeRepo, NodeMapper nodeMapper, RegistrationService registrationService) {
+    public NodeService(NodeRepo nodeRepo, NodeMapper nodeMapper) {
         this.nodeRepo = nodeRepo;
         this.nodeMapper = nodeMapper;
-        this.registrationService = registrationService;
     }
 
     @Transactional
@@ -63,10 +59,6 @@ public class NodeService {
         node.setUpdatedBy(userId);
 
         Node saved = nodeRepo.save(node);
-
-        InvitationCodeGenerateRequestDto inviteReq = new InvitationCodeGenerateRequestDto();
-        inviteReq.setNodeId(saved.getId());
-        registrationService.generateInvitationCode(inviteReq);
 
         if (request.getPartnerId() != null) {
             Node partner = nodeRepo.findByNodeIdAndIsDeletedFalse(request.getPartnerId())

@@ -11,6 +11,7 @@ import com.mgh.backend.tree.domain.entity.Node;
 import com.mgh.backend.auth.domain.enums.RegisterStatus;
 import com.mgh.backend.tree.domain.enums.TreeNodeStatus;
 import com.mgh.backend.auth.repository.RegisterFormRepository;
+import com.mgh.backend.invitation.service.InvitationQuizService;
 import com.mgh.backend.tree.repository.NodeRepo;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -29,6 +30,7 @@ public class RegistrationService {
     private final UserAuthRepo userAuthRepo;
     private final UserProfileRepository userProfileRepository;
     private final PasswordEncoder passwordEncoder;
+    private final InvitationQuizService invitationQuizService;
 
 
     public RegistrationService(
@@ -36,12 +38,14 @@ public class RegistrationService {
                                RegisterFormRepository registerFormRepository,
                                UserAuthRepo userAuthRepo,
                                UserProfileRepository userProfileRepository,
-                               PasswordEncoder passwordEncoder) {
+                               PasswordEncoder passwordEncoder,
+                               InvitationQuizService invitationQuizService) {
         this.nodeRepo = nodeRepo;
         this.registerFormRepository = registerFormRepository;
         this.userAuthRepo = userAuthRepo;
         this.userProfileRepository = userProfileRepository;
         this.passwordEncoder = passwordEncoder;
+        this.invitationQuizService = invitationQuizService;
     }
 
     @Transactional(readOnly = true)
@@ -175,7 +179,9 @@ public class RegistrationService {
     }
 
 
-    public InvitationCodeResponseDto generateInvitationCode(InvitationCodeGenerateRequestDto request) {
+    @Transactional
+    public InvitationCodeResponseDto generateInvitationCode(InvitationCodeGenerateRequestDto request, Long userId) {
+        invitationQuizService.assertEligibleForInvitationGeneration(userId);
 
         Long nodeId = request.getNodeId();
         Node node = nodeRepo.findById(nodeId)
@@ -187,6 +193,8 @@ public class RegistrationService {
         node.setInvitationCode(encrypted);
         node.setStatus(TreeNodeStatus.INACTIVE);
         nodeRepo.save(node);
+
+        invitationQuizService.consumePassedSessionAfterSuccessfulInvite(userId);
 
         return new InvitationCodeResponseDto(encrypted);
     }

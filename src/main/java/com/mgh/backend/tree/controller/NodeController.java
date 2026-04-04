@@ -16,18 +16,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/trees")
+@RequestMapping("/api/nodes")
 @RequiredArgsConstructor
 public class NodeController {
 
     private final NodeService nodeService;
 
-    @PostMapping("/nodes")
+    @PostMapping("/create")
     public ResponseEntity<NodeResponseDto> createNode(@Valid @RequestBody CreateNodeRequestDto request) {
         return ResponseEntity.ok(nodeService.createNode(request));
     }
 
-    @PutMapping("/nodes/{id}")
+    @PutMapping("/update/{id}")
     public ResponseEntity<NodeResponseDto> updateNode(
             @PathVariable Long id,
             @Valid @RequestBody UpdateNodeRequestDto request) {
