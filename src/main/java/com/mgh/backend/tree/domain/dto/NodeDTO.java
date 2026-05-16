@@ -11,4 +11,5 @@ public class NodeDTO {
     private Long level;
     private String nodeName;
     private Gender gender;
+    private Boolean isAlive;
 }

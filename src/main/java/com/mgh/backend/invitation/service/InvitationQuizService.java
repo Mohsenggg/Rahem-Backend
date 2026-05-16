@@ -166,8 +166,9 @@ public class InvitationQuizService {
     }
 
     private void refreshIfExpired(InvitationSession session) {
-        if (!session.isBlocked() && LocalDateTime.now().isAfter(session.getExpiresAt())) {
+        if (LocalDateTime.now().isAfter(session.getExpiresAt())) {
             session.setPassed(false);
+            session.setBlocked(false);
             session.setRound(1);
             session.setAttemptCount(0);
             InvitationQuestion next = pickRandomQuestion();

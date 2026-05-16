@@ -135,6 +135,7 @@ public class TreeService {
                     dto.setLevel(n.getLevel());
                     dto.setNodeName(n.getNodeName());
                     dto.setGender(n.getGender());
+                    dto.setIsAlive(n.getIsAlive());
                     return dto;
                 })
                 .toList();

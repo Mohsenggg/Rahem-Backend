@@ -75,7 +75,7 @@ public class NodeService {
 
     @Transactional
     public NodeResponseDto updateNode(Long id, UpdateNodeRequestDto request) {
-        Node node = nodeRepo.findByIdAndIsDeletedFalse(id)
+        Node node = nodeRepo.findByNodeIdAndIsDeletedFalse(id)
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
 
         Long userId = currentUserId();
