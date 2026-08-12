@@ -88,6 +88,7 @@ public class TreeService {
             node.setLevel(n.getLevel());
             node.setNodeName(n.getNodeName());
             node.setGender(n.getGender());
+            node.setIsAlive(n.getIsAlive());
             node.setTree(savedTree);
 
             // ✅ Resolve parent name
