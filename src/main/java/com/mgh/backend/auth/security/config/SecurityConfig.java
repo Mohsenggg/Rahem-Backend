@@ -67,7 +67,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/registration/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
-                        .requestMatchers("/api/trees/**").permitAll()
+                        .requestMatchers("/api/trees/**").authenticated()
                         .requestMatchers("/api/governorates/**").permitAll()
 
                         .anyRequest().authenticated()
@@ -154,13 +154,18 @@ public class SecurityConfig {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
             response.setContentType("application/json");
 
+            String message = (String) request.getAttribute("jwt_error");
+            if (message == null) {
+                message = "Authentication is required";
+            }
+
             response.getWriter().write("""
             {
               "error": "Unauthorized",
-              "message": "Authentication is required",
+              "message": "%s",
               "path": "%s"
             }
-        """.formatted(request.getRequestURI()));
+        """.formatted(message, request.getRequestURI()));
         };
     }
 

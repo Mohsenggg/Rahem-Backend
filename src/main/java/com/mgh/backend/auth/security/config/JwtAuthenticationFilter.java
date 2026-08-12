@@ -63,21 +63,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
 
-        // ---------------------------------------------------------
-        // 1.2 Added New to solve expired token bug
-        // ---------------------------------------------------------
-
-        String path = request.getServletPath();
-
-        if (path.equals("/api/auth/login") ||
-                path.equals("/api/auth/register") ||
-                path.equals("/api/auth/invitation/check") ||
-                path.equals("/api/auth/register/submit") ||
-                path.equals("/api/auth/register/submit/approve")) {
-            log.debug("Skipping JWT filter for public auth endpoint: {}", path);
-            filterChain.doFilter(request, response);
-            return;
-        }
 
         // ---------------------------------------------------------
         // 2. Skip authentication if Authorization header is missing
@@ -108,15 +93,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // Any malformed token, invalid signature, or unsupported
             // JWT will throw an exception here
             username = jwtService.extractUsername(jwt);
-            userDetails = userDetailsService.loadUserByUsername(username);
-            log.debug("JWT parsed. subject(username)={} authorities={}", username, userDetails.getAuthorities());
+            log.debug("JWT parsed. subject(username)={}", username);
         } catch (JwtException | IllegalArgumentException ex) {
             // ---------------------------------------------------------
             // 5. Token is invalid or malformed → reject request
             // ---------------------------------------------------------
             SecurityContextHolder.clearContext();
             log.debug("JWT parsing/validation failed: {}", ex.getMessage());
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or malformed JWT");
+            request.setAttribute("jwt_error", "Invalid or malformed JWT");
+            filterChain.doFilter(request, response);
             return;
         }
 
@@ -139,7 +124,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // ---------------------------------------------------------
                 SecurityContextHolder.clearContext();
                 log.debug("User not found for token subject(username)={}", username);
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "User not found for JWT");
+                request.setAttribute("jwt_error", "User not found for JWT");
+                filterChain.doFilter(request, response);
                 return;
             }
 
@@ -148,7 +134,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // ---------------------------------------------------------
             // Useful for logout, forced sign-out, or compromised tokens
             // if (tokenRevocationService.isRevoked(jwt)) {
-            //     response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token has been revoked");
+            //     request.setAttribute("jwt_error", "Token has been revoked");
+            //     filterChain.doFilter(request, response);
             //     return;
             // }
 
@@ -159,7 +146,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (!jwtService.isTokenValid(jwt, userDetails)) {
                 SecurityContextHolder.clearContext();
                 log.debug("JWT not valid for username={} (expired/subject mismatch/signature)", username);
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Expired or invalid JWT");
+                request.setAttribute("jwt_error", "Expired or invalid JWT");
+                filterChain.doFilter(request, response);
                 return;
             }
 
@@ -176,7 +164,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.clearContext();
                 log.debug("User account not in good standing. enabled={} locked={}",
                         userDetails.isEnabled(), userDetails.isAccountNonLocked());
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "User account is not in good standing");
+                request.setAttribute("jwt_error", "User account is not in good standing");
+                filterChain.doFilter(request, response);
                 return;
             }
 
