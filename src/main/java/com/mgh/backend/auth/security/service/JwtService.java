@@ -52,8 +52,8 @@ public class JwtService {
     }
 
     private TokenExpiryDto buildToken(Map<String, Object> extraClaims,
-                                       UserDetails userDetails,
-                                       long expiration) {
+                                      UserDetails userDetails,
+                                      long expiration) {
         long now = System.currentTimeMillis();
         long expiryMillis = now + jwtExpiration;
 
