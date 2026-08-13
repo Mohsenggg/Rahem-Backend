@@ -32,11 +32,25 @@ public class NodeService {
 
     @Transactional
     public NodeResponseDto createNode(CreateNodeRequestDto request) {
-        Node parent = nodeRepo.findByNodeIdAndIsDeletedFalse(request.getParentId())
-                .orElseThrow(() -> new EntityNotFoundException("Parent node not found"));
+        if (request.getFatherId() == null && request.getMotherId() == null) {
+            throw new IllegalArgumentException("At least fatherId or motherId must be provided");
+        }
+
+        Long primaryParentId = request.getFatherId() != null ? request.getFatherId() : request.getMotherId();
+        Node primaryParent = nodeRepo.findByNodeIdAndIsDeletedFalse(primaryParentId)
+                .orElseThrow(() -> new EntityNotFoundException("Primary parent node not found"));
+
+        if (request.getFatherId() != null && request.getMotherId() != null) {
+            Long secondaryId = request.getMotherId();
+            Node secondaryParent = nodeRepo.findByNodeIdAndIsDeletedFalse(secondaryId)
+                    .orElseThrow(() -> new EntityNotFoundException("Secondary parent node not found"));
+            if (!secondaryParent.getTree().getTreeId().equals(primaryParent.getTree().getTreeId())) {
+                throw new IllegalArgumentException("Parents must belong to the same tree");
+            }
+        }
 
         if (request.getPartnerId() != null) {
-            if (request.getPartnerId().equals(request.getParentId())) {
+            if (request.getPartnerId().equals(request.getFatherId()) || request.getPartnerId().equals(request.getMotherId())) {
                 throw new IllegalArgumentException("Invalid partner relationship");
             }
         }
@@ -49,10 +63,10 @@ public class NodeService {
         Node node = new Node();
         node.setNodeId(newNodeId);
         node.setNodeName(request.getName().trim());
-        node.setParentId(parent.getNodeId());
-        node.setNodeParentName(parent.getNodeName());
-        node.setTree(parent.getTree());
-        node.setLevel(parent.getLevel() + 1);
+        node.setFatherId(request.getFatherId());
+        node.setMotherId(request.getMotherId());
+        node.setTree(primaryParent.getTree());
+        node.setLevel(primaryParent.getLevel() + 1);
         node.setGender(request.getGender());
         node.setIsAlive(request.getIsAlive());
         node.setCreatedBy(userId);
@@ -63,13 +77,13 @@ public class NodeService {
         if (request.getPartnerId() != null) {
             Node partner = nodeRepo.findByNodeIdAndIsDeletedFalse(request.getPartnerId())
                     .orElseThrow(() -> new EntityNotFoundException("Partner node not found"));
-            validateNewPartnerLink(saved, partner, parent);
+            validateNewPartnerLink(saved, partner);
             establishPartnership(saved, partner);
         }
 
         Node reloaded = nodeRepo.findByIdAndIsDeletedFalse(saved.getId())
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
-        log.debug("Created node id={} nodeId={} under parent nodeId={}", reloaded.getId(), reloaded.getNodeId(), parent.getNodeId());
+        log.debug("Created node id={} nodeId={} under primary parent nodeId={}", reloaded.getId(), reloaded.getNodeId(), primaryParent.getNodeId());
         return nodeMapper.toResponse(reloaded);
     }
 
@@ -113,11 +127,11 @@ public class NodeService {
         return dto;
     }
 
-    private void validateNewPartnerLink(Node newNode, Node partner, Node parent) {
-        if (partner.getNodeId().equals(parent.getNodeId())) {
+    private void validateNewPartnerLink(Node newNode, Node partner) {
+        if (partner.getNodeId().equals(newNode.getFatherId()) || partner.getNodeId().equals(newNode.getMotherId())) {
             throw new IllegalArgumentException("Invalid partner relationship");
         }
-        if (!partner.getTree().getTreeId().equals(parent.getTree().getTreeId())) {
+        if (!partner.getTree().getTreeId().equals(newNode.getTree().getTreeId())) {
             throw new IllegalArgumentException("Invalid partner relationship");
         }
         if (partner.getPartnerId() != null) {
@@ -129,7 +143,7 @@ public class NodeService {
         if (partner.getNodeId().equals(node.getNodeId())) {
             throw new IllegalArgumentException("Invalid partner relationship");
         }
-        if (partner.getNodeId().equals(node.getParentId())) {
+        if (partner.getNodeId().equals(node.getFatherId()) || partner.getNodeId().equals(node.getMotherId())) {
             throw new IllegalArgumentException("Invalid partner relationship");
         }
         if (!partner.getTree().getTreeId().equals(node.getTree().getTreeId())) {

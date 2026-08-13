@@ -59,11 +59,18 @@ public class RegistrationService {
             throw new IllegalArgumentException("Invitation code does not match this node");
         }
 
+        String parentName = "";
+        if (node.getFatherId() != null) {
+            parentName = nodeRepo.findByNodeIdAndIsDeletedFalse(node.getFatherId()).map(Node::getNodeName).orElse("");
+        } else if (node.getMotherId() != null) {
+            parentName = nodeRepo.findByNodeIdAndIsDeletedFalse(node.getMotherId()).map(Node::getNodeName).orElse("");
+        }
+
         TreeNodeStatus status = node.getStatus();
         if (status == TreeNodeStatus.INACTIVE) {
             return RegistrationInitiateResponseDto.builder()
                     .firstName(node.getNodeName())
-                    .parentName(node.getNodeParentName())
+                    .parentName(parentName)
                     .status(status)
                     .message("Register Now")
                     .build();
@@ -144,12 +151,19 @@ public class RegistrationService {
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
 
 
+        String parentName = "";
+        if (node.getFatherId() != null) {
+            parentName = nodeRepo.findByNodeIdAndIsDeletedFalse(node.getFatherId()).map(Node::getNodeName).orElse("");
+        } else if (node.getMotherId() != null) {
+            parentName = nodeRepo.findByNodeIdAndIsDeletedFalse(node.getMotherId()).map(Node::getNodeName).orElse("");
+        }
+
         UserAuth userAuth = UserAuth.builder()
                 .username(registerForm.getUsername())
                 .email(registerForm.getEmail())
                 .password(registerForm.getPassword())
                 .phone(registerForm.getPhone())
-                .fullName(node.getNodeName() + " " + node.getNodeParentName())
+                .fullName(node.getNodeName() + " " + parentName)
                 .role(Role.USER)
                 .enabled(true)
                 .locked(false)

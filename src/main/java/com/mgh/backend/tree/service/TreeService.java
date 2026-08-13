@@ -70,9 +70,10 @@ public class TreeService {
 
         List<Node> nodes = treeWithNodesDTO.getNodeDTOS().stream().map(n -> {
 
-            if (n.getParentId() != 0 && !nodeIds.contains(n.getParentId())) {
+            if ((n.getFatherId() != null && !nodeIds.contains(n.getFatherId())) || 
+                (n.getMotherId() != null && !nodeIds.contains(n.getMotherId()))) {
                 throw new IllegalArgumentException(
-                        "Invalid parentId: " + n.getParentId()
+                        "Invalid parentId reference"
                 );
             }
 
@@ -84,31 +85,23 @@ public class TreeService {
 
             Node node = new Node();
             node.setNodeId(n.getNodeId());
-            node.setParentId(n.getParentId());
+            node.setFatherId(n.getFatherId());
+            node.setMotherId(n.getMotherId());
             node.setLevel(n.getLevel());
             node.setNodeName(n.getNodeName());
             node.setGender(n.getGender());
             node.setIsAlive(n.getIsAlive());
             node.setTree(savedTree);
 
-            // ✅ Resolve parent name
-            if (n.getParentId() != 0) {
-                String parentName = idToNameMap.get(n.getParentId());
-                node.setNodeParentName(parentName);
-            } else {
-                node.setNodeParentName("أحمد"); // root node
-            }
-
             return node;
         }).toList();
 
 //        nodeRepository.saveAll(nodes);
 
-
-        nodes.forEach(n ->
-                log.info("Saving node: id={}, parentId={}, level={}, name={}",
-                        n.getNodeId(), n.getParentId(), n.getLevel(), n.getNodeName())
-        );
+//
+//                log.info("Saving node: id={}, fatherId={}, motherId={}, level={}, name={}",
+//                        n.getNodeId(), n.getFatherId(), n.getMotherId(), n.getLevel(), n.getNodeName())
+//        );
         for (Node node : nodes) {
             try {
                 nodeRepository.saveAndFlush(node); // 🔥 forces immediate DB insert
@@ -132,7 +125,8 @@ public class TreeService {
                 .map(n -> {
                     NodeDTO dto = new NodeDTO();
                     dto.setNodeId(n.getNodeId());
-                    dto.setParentId(n.getParentId());
+                    dto.setFatherId(n.getFatherId());
+                    dto.setMotherId(n.getMotherId());
                     dto.setLevel(n.getLevel());
                     dto.setNodeName(n.getNodeName());
                     dto.setGender(n.getGender());

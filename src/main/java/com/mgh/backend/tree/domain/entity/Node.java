@@ -32,11 +32,11 @@ public class Node {
     @Column(name = "node_name", nullable = false)
     private String nodeName;
 
-    @Column(name = "parent_id", nullable = false)
-    private Long parentId;
+    @Column(name = "father_id")
+    private Long fatherId;
 
-    @Column(name = "node_parent_name", nullable = false)
-    private String nodeParentName; // familyName
+    @Column(name = "mother_id")
+    private Long motherId;
 
     @Column(name = "partner_id")
     private Long partnerId;

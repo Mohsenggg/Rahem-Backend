@@ -7,7 +7,8 @@ import lombok.Data;
 public class NodeDTO {
 
     private Long nodeId;
-    private Long parentId;
+    private Long fatherId;
+    private Long motherId;
     private Long partnerId;
 
     private Long level;

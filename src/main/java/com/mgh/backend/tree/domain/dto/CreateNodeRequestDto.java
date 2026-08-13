@@ -17,8 +17,8 @@ public class CreateNodeRequestDto {
     @NotNull
     private Boolean isAlive;
 
-    @NotNull
-    private Long parentId;
+    private Long fatherId;
+    private Long motherId;
     /**
      * Business node id of the partner (optional).
      */

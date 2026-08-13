@@ -14,7 +14,8 @@ public class NodeResponseDto {
 
     private Long id;
     private Long nodeId;
-    private Long parentId;
+    private Long fatherId;
+    private Long motherId;
     private String name;
     private Long level;
     private Gender gender;
