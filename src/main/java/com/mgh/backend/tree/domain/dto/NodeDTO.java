@@ -8,8 +8,12 @@ public class NodeDTO {
 
     private Long nodeId;
     private Long parentId;
+    private Long partnerId;
+
     private Long level;
     private String nodeName;
+    private String partnerName;
+
     private Gender gender;
     private Boolean isAlive;
 }

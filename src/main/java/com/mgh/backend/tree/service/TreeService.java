@@ -137,6 +137,8 @@ public class TreeService {
                     dto.setNodeName(n.getNodeName());
                     dto.setGender(n.getGender());
                     dto.setIsAlive(n.getIsAlive());
+                    dto.setPartnerId(n.getPartnerId());
+                    dto.setPartnerName(n.getPartnerName());
                     return dto;
                 })
                 .toList();

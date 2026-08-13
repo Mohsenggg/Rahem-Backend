@@ -3,11 +3,15 @@ package com.mgh.backend.tree.domain.entity;
 import com.mgh.backend.tree.domain.enums.Gender;
 import com.mgh.backend.tree.domain.enums.TreeNodeStatus;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "node")
 @Getter
