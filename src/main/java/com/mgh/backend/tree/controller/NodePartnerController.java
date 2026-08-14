@@ -74,6 +74,18 @@ public class NodePartnerController {
     }
 
     /**
+     * DELETE /api/nodes/{nodeId}/partners/{partnershipId}
+     * Permanently remove a partnership.
+     */
+    @DeleteMapping("/{partnershipId}")
+    public ResponseEntity<Void> removePartner(
+            @PathVariable Long nodeId,
+            @PathVariable Long partnershipId) {
+        nodePartnerService.removePartner(nodeId, partnershipId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * POST /api/nodes/{nodeId}/partners/external
      * Create an external "ghost" node and link it as a partner.
      */

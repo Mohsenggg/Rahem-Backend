@@ -127,6 +127,16 @@ public class NodePartnerService {
         return toDto(nodePartnerRepository.save(np), node);
     }
 
+    /**
+     * Permanently remove a partnership record.
+     */
+    public void removePartner(Long nodeId, Long partnershipId) {
+        Node node = findNode(nodeId);
+        NodePartner np = findPartnership(partnershipId);
+        validateNodeBelongsToPartnership(node, np);
+        nodePartnerRepository.delete(np);
+    }
+
     // =========================================================================
     // Validation
     // =========================================================================
