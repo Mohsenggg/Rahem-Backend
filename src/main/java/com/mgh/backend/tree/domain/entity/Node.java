@@ -65,6 +65,9 @@ public class Node {
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted = false;
 
+    @Column(name = "is_external", nullable = false)
+    private Boolean isExternal = false;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 

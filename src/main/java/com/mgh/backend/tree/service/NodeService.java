@@ -1,6 +1,7 @@
 package com.mgh.backend.tree.service;
 
 import com.mgh.backend.auth.security.adapter.UserAuthAdapter;
+import com.mgh.backend.tree.domain.dto.CreateGhostNodeRequest;
 import com.mgh.backend.tree.domain.dto.CreateNodeRequestDto;
 import com.mgh.backend.tree.domain.dto.NodeResponseDto;
 import com.mgh.backend.tree.domain.dto.UpdateNodeRequestDto;
@@ -90,6 +91,30 @@ public class NodeService {
 
         Node saved = nodeRepo.save(node);
         return buildResponse(saved);
+    }
+
+    @Transactional
+    public Node createGhostNode(CreateGhostNodeRequest request, Node primaryNode) {
+        Long maxNodeId = nodeRepo.findMaxNodeId();
+        long newNodeId = (maxNodeId != null ? maxNodeId : 0L) + 1L;
+
+        Long userId = currentUserId();
+
+        Node ghostNode = new Node();
+        ghostNode.setNodeId(newNodeId);
+        ghostNode.setNodeName(request.getName().trim());
+        ghostNode.setGender(request.getGender());
+        ghostNode.setTree(primaryNode.getTree());
+        ghostNode.setLevel(-1L); // Sentinel level for ghost nodes
+        ghostNode.setIsExternal(true);
+        ghostNode.setIsAlive(true); // Default
+        ghostNode.setCreatedBy(userId);
+        ghostNode.setUpdatedBy(userId);
+
+        Node saved = nodeRepo.save(ghostNode);
+        log.debug("Created ghost node id={} nodeId={} under treeId={}", saved.getId(), saved.getNodeId(), primaryNode.getTree().getTreeId());
+
+        return saved;
     }
 
     // =========================================================================

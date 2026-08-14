@@ -117,7 +117,10 @@ public class TreeService {
         Tree tree = treeRepository.findById(treeId)
                 .orElseThrow(() -> new IllegalArgumentException("Tree not found"));
 
-        List<Node> rawNodes = nodeRepository.findByTreeTreeIdOrderByLevelAscNodeIdAsc(treeId);
+        List<Node> rawNodes = nodeRepository.findByTreeTreeIdOrderByLevelAscNodeIdAsc(treeId)
+                .stream()
+                .filter(n -> !Boolean.TRUE.equals(n.getIsExternal()))
+                .toList();
 
         // For each node, find its active + visible partner for tree display purposes.
         // We load them per-node to avoid a massive JOIN; the number of nodes per tree
