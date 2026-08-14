@@ -19,8 +19,4 @@ public class CreateNodeRequestDto {
 
     private Long fatherId;
     private Long motherId;
-    /**
-     * Business node id of the partner (optional).
-     */
-    private Long partnerId;
 }

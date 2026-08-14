@@ -5,7 +5,10 @@ import com.mgh.backend.tree.domain.dto.NodeDTO;
 import com.mgh.backend.tree.domain.dto.TreeDTO;
 import com.mgh.backend.tree.domain.dto.TreeWithNodesDTO;
 import com.mgh.backend.tree.domain.entity.Node;
+import com.mgh.backend.tree.domain.entity.NodePartner;
 import com.mgh.backend.tree.domain.entity.Tree;
+import com.mgh.backend.tree.domain.enums.PartnerStatus;
+import com.mgh.backend.tree.repository.NodePartnerRepository;
 import com.mgh.backend.tree.repository.NodeRepo;
 import com.mgh.backend.tree.repository.TreeRepo;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +32,7 @@ public class TreeService {
     Logger log = LoggerFactory.getLogger(TreeService.class);
     private final TreeRepo treeRepository;
     private final NodeRepo nodeRepository;
+    private final NodePartnerRepository nodePartnerRepository;
 
     // Tree operations
     public Tree createTree(TreeDTO treeDTO) {
@@ -70,7 +74,7 @@ public class TreeService {
 
         List<Node> nodes = treeWithNodesDTO.getNodeDTOS().stream().map(n -> {
 
-            if ((n.getFatherId() != null && !nodeIds.contains(n.getFatherId())) || 
+            if ((n.getFatherId() != null && !nodeIds.contains(n.getFatherId())) ||
                 (n.getMotherId() != null && !nodeIds.contains(n.getMotherId()))) {
                 throw new IllegalArgumentException(
                         "Invalid parentId reference"
@@ -96,15 +100,9 @@ public class TreeService {
             return node;
         }).toList();
 
-//        nodeRepository.saveAll(nodes);
-
-//
-//                log.info("Saving node: id={}, fatherId={}, motherId={}, level={}, name={}",
-//                        n.getNodeId(), n.getFatherId(), n.getMotherId(), n.getLevel(), n.getNodeName())
-//        );
         for (Node node : nodes) {
             try {
-                nodeRepository.saveAndFlush(node); // 🔥 forces immediate DB insert
+                nodeRepository.saveAndFlush(node); // forces immediate DB insert
             } catch (Exception e) {
                 log.error("Failed node: {}", node, e);
                 throw e;
@@ -119,28 +117,40 @@ public class TreeService {
         Tree tree = treeRepository.findById(treeId)
                 .orElseThrow(() -> new IllegalArgumentException("Tree not found"));
 
-        List<NodeDTO> nodes = nodeRepository
-                .findByTreeTreeIdOrderByLevelAscNodeIdAsc(treeId)
-                .stream()
-                .map(n -> {
-                    NodeDTO dto = new NodeDTO();
-                    dto.setNodeId(n.getNodeId());
-                    dto.setFatherId(n.getFatherId());
-                    dto.setMotherId(n.getMotherId());
-                    dto.setLevel(n.getLevel());
-                    dto.setNodeName(n.getNodeName());
-                    dto.setGender(n.getGender());
-                    dto.setIsAlive(n.getIsAlive());
-                    dto.setPartnerId(n.getPartnerId());
-                    dto.setPartnerName(n.getPartnerName());
-                    return dto;
-                })
-                .toList();
+        List<Node> rawNodes = nodeRepository.findByTreeTreeIdOrderByLevelAscNodeIdAsc(treeId);
+
+        // For each node, find its active + visible partner for tree display purposes.
+        // We load them per-node to avoid a massive JOIN; the number of nodes per tree
+        // is expected to be manageable and this avoids N+1 by using a single query per node.
+        List<NodeDTO> nodeDtos = rawNodes.stream().map(n -> {
+            NodeDTO dto = new NodeDTO();
+            dto.setNodeId(n.getNodeId());
+            dto.setFatherId(n.getFatherId());
+            dto.setMotherId(n.getMotherId());
+            dto.setLevel(n.getLevel());
+            dto.setNodeName(n.getNodeName());
+            dto.setGender(n.getGender());
+            dto.setIsAlive(n.getIsAlive());
+
+            // Populate active partner for tree display (first visible active partner only)
+            List<NodePartner> activePartners = nodePartnerRepository.findActiveVisibleByNode(n);
+            if (!activePartners.isEmpty()) {
+                NodePartner np = activePartners.get(0);
+                // Determine which side of the relationship is "the other" node
+                Node other = np.getNode().getNodeId().equals(n.getNodeId())
+                        ? np.getPartner()
+                        : np.getNode();
+                dto.setActivePartnerId(other.getNodeId());
+                dto.setActivePartnerName(other.getNodeName());
+            }
+
+            return dto;
+        }).toList();
 
         TreeWithNodesDTO result = new TreeWithNodesDTO();
         result.setTreeId(tree.getTreeId());
         result.setTreeName(tree.getTreeName());
-        result.setNodeDTOS(nodes);
+        result.setNodeDTOS(nodeDtos);
 
         return result;
     }

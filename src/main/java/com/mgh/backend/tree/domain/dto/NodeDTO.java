@@ -9,12 +9,17 @@ public class NodeDTO {
     private Long nodeId;
     private Long fatherId;
     private Long motherId;
-    private Long partnerId;
 
     private Long level;
     private String nodeName;
-    private String partnerName;
 
     private Gender gender;
     private Boolean isAlive;
+
+    /**
+     * The nodeId of the active, visible partner for display in the tree.
+     * Populated from the node_partner table when serving the tree response.
+     */
+    private Long activePartnerId;
+    private String activePartnerName;
 }

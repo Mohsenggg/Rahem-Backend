@@ -37,12 +37,6 @@ public class Node {
 
     @Column(name = "mother_id")
     private Long motherId;
-//
-//    @Column(name = "partner_id")
-//    private Long partnerId;
-//
-//    @Column(name = "partner_name")
-//    private String partnerName;
 
     @Column(name = "user_id")
     private Long userId; // Link to the authentication user once registration is approved.

@@ -16,9 +16,4 @@ public class UpdateNodeRequestDto {
 
     @NotNull
     private Boolean isAlive;
-
-    /**
-     * Business node id of the partner, or null to remove partnership.
-     */
-    private Long partnerId;
 }

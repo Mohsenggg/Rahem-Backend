@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -20,5 +22,7 @@ public class NodeResponseDto {
     private Long level;
     private Gender gender;
     private Boolean isAlive;
-    private PartnerSummaryDto partner;
+
+    /** All partner relationships for this node. */
+    private List<NodePartnerDto> partners;
 }
