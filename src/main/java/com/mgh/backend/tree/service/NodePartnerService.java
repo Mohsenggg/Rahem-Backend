@@ -50,6 +50,9 @@ public class NodePartnerService {
         validateSelf(node, partner);
         validateSameTree(node, partner);
         validateDuplicate(node, partner);
+        validateGender(node, partner);
+        validateNotParent(node, partner);
+        validateNotChild(node, partner);
 
         // Female active-partner restriction: check both sides
         if (node.getGender() == Gender.FEMALE && request.getStatus() == PartnerStatus.ACTIVE) {
@@ -144,6 +147,26 @@ public class NodePartnerService {
     private void validateSelf(Node node, Node partner) {
         if (node.getNodeId().equals(partner.getNodeId())) {
             throw new IllegalArgumentException("A node cannot be its own partner");
+        }
+    }
+
+    private void validateGender(Node node, Node partner) {
+        if (node.getGender() == partner.getGender()) {
+            throw new IllegalArgumentException("Partners must be of opposite genders");
+        }
+    }
+
+    private void validateNotParent(Node node, Node partner) {
+        if ((node.getFatherId() != null && node.getFatherId().equals(partner.getNodeId())) ||
+            (node.getMotherId() != null && node.getMotherId().equals(partner.getNodeId()))) {
+            throw new IllegalArgumentException("Cannot select a parent as a partner");
+        }
+    }
+
+    private void validateNotChild(Node node, Node partner) {
+        if ((partner.getFatherId() != null && partner.getFatherId().equals(node.getNodeId())) ||
+            (partner.getMotherId() != null && partner.getMotherId().equals(node.getNodeId()))) {
+            throw new IllegalArgumentException("Cannot select a child as a partner");
         }
     }
 
