@@ -53,6 +53,7 @@ public class NodePartnerService {
         validateGender(node, partner);
         validateNotParent(node, partner);
         validateNotChild(node, partner);
+        validateNotSibling(node, partner);
 
         // Female active-partner restriction: check both sides
         if (node.getGender() == Gender.FEMALE && request.getStatus() == PartnerStatus.ACTIVE) {
@@ -167,6 +168,15 @@ public class NodePartnerService {
         if ((partner.getFatherId() != null && partner.getFatherId().equals(node.getNodeId())) ||
             (partner.getMotherId() != null && partner.getMotherId().equals(node.getNodeId()))) {
             throw new IllegalArgumentException("Cannot select a child as a partner");
+        }
+    }
+
+    private void validateNotSibling(Node node, Node partner) {
+        if (node.getFatherId() != null && node.getFatherId().equals(partner.getFatherId())) {
+            throw new IllegalArgumentException("Cannot select a sibling as a partner");
+        }
+        if (node.getMotherId() != null && node.getMotherId().equals(partner.getMotherId())) {
+            throw new IllegalArgumentException("Cannot select a sibling as a partner");
         }
     }
 

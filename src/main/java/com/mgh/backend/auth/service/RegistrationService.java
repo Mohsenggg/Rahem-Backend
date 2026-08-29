@@ -14,6 +14,7 @@ import com.mgh.backend.auth.repository.RegisterFormRepository;
 import com.mgh.backend.invitation.service.InvitationQuizService;
 import com.mgh.backend.tree.repository.NodeRepo;
 import jakarta.persistence.EntityNotFoundException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Base64;
 
+@Slf4j
 @Service
 public class RegistrationService {
 
@@ -52,7 +54,7 @@ public class RegistrationService {
     public RegistrationInitiateResponseDto initiateRegistration(RegistrationInitiateRequestDto request) {
         Long nodeId = validateAndExtractNodeId(request.getInvitationCode());
 
-        Node node = nodeRepo.findById(nodeId)
+        Node node = nodeRepo.findByNodeIdAndIsDeletedFalse(nodeId)
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
 
         if (!request.getInvitationCode().equals(node.getInvitationCode())) {
@@ -100,7 +102,7 @@ public class RegistrationService {
     public Long submitRegistration(RegistrationSubmitRequestDto request) {
         Long nodeId = validateAndExtractNodeId(request.getInvitationCode());
 
-        Node node = nodeRepo.findById(nodeId)
+        Node node = nodeRepo.findByNodeIdAndIsDeletedFalse(nodeId)
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
 
         if (!request.getInvitationCode().equals(node.getInvitationCode())) {
@@ -119,7 +121,7 @@ public class RegistrationService {
 
 
         RegisterForm registerForm = RegisterForm.builder()
-                .nodeId(node.getId())
+                .nodeId(node.getNodeId())
                 .username(username)
                 .email(request.getEmail())
                 .phone(request.getPhoneNumber())
@@ -147,7 +149,7 @@ public class RegistrationService {
             return approvedBy;
         }
 
-        Node node = nodeRepo.findById(registerForm.getNodeId())
+        Node node = nodeRepo.findByNodeIdAndIsDeletedFalse(registerForm.getNodeId())
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
 
 
@@ -198,10 +200,13 @@ public class RegistrationService {
         invitationQuizService.assertEligibleForInvitationGeneration(userId);
 
         Long nodeId = request.getNodeId();
-        Node node = nodeRepo.findById(nodeId)
+        Node node = nodeRepo.findByNodeIdAndIsDeletedFalse(nodeId)
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
 
-        String payload = "nodeId:" + node.getId();
+        log.info("==================================");
+        log.info("generated node Id >>>> {}", nodeId);
+        log.info("==================================");
+        String payload = "nodeId:" + node.getNodeId();
         String encrypted = Base64.getUrlEncoder().encodeToString(payload.getBytes(StandardCharsets.UTF_8));
 
         node.setInvitationCode(encrypted);
@@ -226,6 +231,11 @@ public class RegistrationService {
         }
 
         String idPart = decoded.substring("nodeId:".length());
+
+        log.info("==================================");
+        log.info("decoded node Id >>>> {}", idPart);
+        log.info("==================================");
+
         try {
             return Long.parseLong(idPart);
         } catch (NumberFormatException ex) {
