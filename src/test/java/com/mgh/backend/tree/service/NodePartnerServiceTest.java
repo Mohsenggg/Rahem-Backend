@@ -41,6 +41,9 @@ class NodePartnerServiceTest {
     @Mock
     private NodeRepo nodeRepo;
 
+    @Mock
+    private TreeAuditService treeAuditService;
+
     @InjectMocks
     private NodePartnerService nodePartnerService;
 
@@ -251,6 +254,78 @@ class NodePartnerServiceTest {
         NodePartnerDto result = nodePartnerService.updatePartner(ahmed.getNodeId(), 60L, req);
 
         assertThat(result.getStatus()).isEqualTo(PartnerStatus.ENDED);
+    }
+
+    // =========================================================================
+    // Audit History Verification
+    // =========================================================================
+
+    @Test
+    @DisplayName("addPartner records audit with action CREATE and after snapshot")
+    void addPartner_recordsAudit() {
+        setupNodeLookup(ahmed, sara);
+        when(nodePartnerRepository.existsByTwoNodes(any(), any())).thenReturn(false);
+        when(nodePartnerRepository.findAllByNodeAndStatus(any(), eq(PartnerStatus.ACTIVE)))
+                .thenReturn(Collections.emptyList());
+        when(nodePartnerRepository.save(any())).thenAnswer(inv -> {
+            NodePartner np = inv.getArgument(0);
+            np.setId(77L);
+            return np;
+        });
+
+        CreateNodePartnerRequest req = new CreateNodePartnerRequest();
+        req.setPartnerNodeId(sara.getNodeId());
+        req.setStatus(PartnerStatus.ACTIVE);
+        req.setIsVisible(true);
+
+        nodePartnerService.addPartner(ahmed.getNodeId(), req);
+
+        verify(treeAuditService).recordPartnerCreate(any(), eq(1L));
+    }
+
+    @Test
+    @DisplayName("updatePartner records audit with action UPDATE and before/after snapshots")
+    void updatePartner_recordsAudit() {
+        setupNodeLookup(ahmed);
+        NodePartner np = makePartnership(60L, ahmed, sara, PartnerStatus.ACTIVE);
+        when(nodePartnerRepository.findById(60L)).thenReturn(Optional.of(np));
+        when(nodePartnerRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        UpdateNodePartnerRequest req = new UpdateNodePartnerRequest();
+        req.setStatus(PartnerStatus.ENDED);
+
+        nodePartnerService.updatePartner(ahmed.getNodeId(), 60L, req);
+
+        verify(treeAuditService).recordPartnerUpdate(any(), any(), eq(1L));
+    }
+
+    @Test
+    @DisplayName("setVisibility records audit with action UPDATE")
+    void setVisibility_recordsAudit() {
+        setupNodeLookup(ahmed);
+        NodePartner np = makePartnership(60L, ahmed, sara, PartnerStatus.ACTIVE);
+        when(nodePartnerRepository.findById(60L)).thenReturn(Optional.of(np));
+        when(nodePartnerRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        PartnerVisibilityRequest req = new PartnerVisibilityRequest();
+        req.setVisible(false);
+
+        nodePartnerService.setVisibility(ahmed.getNodeId(), 60L, req);
+
+        verify(treeAuditService).recordPartnerUpdate(any(), any(), eq(1L));
+    }
+
+    @Test
+    @DisplayName("removePartner records audit with action DELETE and before snapshot")
+    void removePartner_recordsAudit() {
+        setupNodeLookup(ahmed);
+        NodePartner np = makePartnership(60L, ahmed, sara, PartnerStatus.ACTIVE);
+        when(nodePartnerRepository.findById(60L)).thenReturn(Optional.of(np));
+
+        nodePartnerService.removePartner(ahmed.getNodeId(), 60L);
+
+        verify(nodePartnerRepository).delete(np);
+        verify(treeAuditService).recordPartnerDelete(any(), eq(1L));
     }
 
     // =========================================================================

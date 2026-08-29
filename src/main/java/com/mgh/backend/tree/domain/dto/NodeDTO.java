@@ -22,4 +22,6 @@ public class NodeDTO {
      */
     private Long activePartnerId;
     private String activePartnerName;
+
+    private Long version;
 }

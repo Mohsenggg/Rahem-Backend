@@ -5,6 +5,7 @@ import com.mgh.backend.tree.domain.entity.Node;
 import com.mgh.backend.tree.domain.entity.NodePartner;
 import com.mgh.backend.tree.domain.enums.Gender;
 import com.mgh.backend.tree.domain.enums.PartnerStatus;
+import com.mgh.backend.tree.domain.snapshot.PartnerSnapshot;
 import com.mgh.backend.tree.repository.NodePartnerRepository;
 import com.mgh.backend.tree.repository.NodeRepo;
 import jakarta.persistence.EntityNotFoundException;
@@ -22,6 +23,7 @@ public class NodePartnerService {
 
     private final NodePartnerRepository nodePartnerRepository;
     private final NodeRepo nodeRepo;
+    private final TreeAuditService treeAuditService;
 
     // =========================================================================
     // Public API
@@ -83,6 +85,10 @@ public class NodePartnerService {
         np.setEndedAt(request.getEndedAt());
 
         NodePartner saved = nodePartnerRepository.save(np);
+
+        PartnerSnapshot after = PartnerSnapshot.of(saved);
+        treeAuditService.recordPartnerCreate(after, node.getTree().getTreeId());
+
         return toDto(saved, node);
     }
 
@@ -105,6 +111,8 @@ public class NodePartnerService {
             }
         }
 
+        PartnerSnapshot before = PartnerSnapshot.of(np);
+
         if (request.getStatus() != null) {
             np.setStatus(request.getStatus());
             // Auto-populate endedAt when status changes to ENDED
@@ -116,7 +124,12 @@ public class NodePartnerService {
         if (request.getStartedAt() != null) np.setStartedAt(request.getStartedAt());
         if (request.getEndedAt() != null) np.setEndedAt(request.getEndedAt());
 
-        return toDto(nodePartnerRepository.save(np), node);
+        NodePartner saved = nodePartnerRepository.save(np);
+
+        PartnerSnapshot after = PartnerSnapshot.of(saved);
+        treeAuditService.recordPartnerUpdate(before, after, node.getTree().getTreeId());
+
+        return toDto(saved, node);
     }
 
     /**
@@ -127,8 +140,15 @@ public class NodePartnerService {
         NodePartner np = findPartnership(partnershipId);
         validateNodeBelongsToPartnership(node, np);
 
+        PartnerSnapshot before = PartnerSnapshot.of(np);
+
         np.setIsVisible(request.getVisible());
-        return toDto(nodePartnerRepository.save(np), node);
+        NodePartner saved = nodePartnerRepository.save(np);
+
+        PartnerSnapshot after = PartnerSnapshot.of(saved);
+        treeAuditService.recordPartnerUpdate(before, after, node.getTree().getTreeId());
+
+        return toDto(saved, node);
     }
 
     /**
@@ -138,7 +158,12 @@ public class NodePartnerService {
         Node node = findNode(nodeId);
         NodePartner np = findPartnership(partnershipId);
         validateNodeBelongsToPartnership(node, np);
+
+        PartnerSnapshot before = PartnerSnapshot.of(np);
+
         nodePartnerRepository.delete(np);
+
+        treeAuditService.recordPartnerDelete(before, node.getTree().getTreeId());
     }
 
     // =========================================================================

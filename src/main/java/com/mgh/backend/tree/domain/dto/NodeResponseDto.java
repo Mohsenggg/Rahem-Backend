@@ -25,4 +25,6 @@ public class NodeResponseDto {
 
     /** All partner relationships for this node. */
     private List<NodePartnerDto> partners;
+
+    private Long version;
 }

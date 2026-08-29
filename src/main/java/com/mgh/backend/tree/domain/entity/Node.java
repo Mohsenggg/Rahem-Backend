@@ -68,6 +68,10 @@ public class Node {
     @Column(name = "is_external", nullable = false)
     private Boolean isExternal = false;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version = 0L;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 

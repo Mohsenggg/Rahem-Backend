@@ -44,6 +44,19 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
     }
 
+    @ExceptionHandler({
+            org.springframework.orm.ObjectOptimisticLockingFailureException.class,
+            jakarta.persistence.OptimisticLockException.class,
+            org.hibernate.StaleObjectStateException.class
+    })
+    public ResponseEntity<ApiError> handleOptimisticLocking(Exception ex, HttpServletRequest request) {
+        return buildError(
+                HttpStatus.CONFLICT,
+                "This node was modified by another user. Please refresh the tree and try again.",
+                request.getRequestURI()
+        );
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleGeneric(Exception ex, HttpServletRequest request) {
 

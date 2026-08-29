@@ -16,4 +16,6 @@ public class UpdateNodeRequestDto {
 
     @NotNull
     private Boolean isAlive;
+
+    private Long version;
 }

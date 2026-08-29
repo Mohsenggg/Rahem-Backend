@@ -96,6 +96,7 @@ public class TreeService {
             node.setGender(n.getGender());
             node.setIsAlive(n.getIsAlive());
             node.setTree(savedTree);
+            node.setVersion(n.getVersion() != null ? n.getVersion() : 0L);
 
             return node;
         }).toList();
@@ -134,6 +135,7 @@ public class TreeService {
             dto.setNodeName(n.getNodeName());
             dto.setGender(n.getGender());
             dto.setIsAlive(n.getIsAlive());
+            dto.setVersion(n.getVersion());
 
             // Populate active partner for tree display (first visible active partner only)
             List<NodePartner> activePartners = nodePartnerRepository.findActiveVisibleByNode(n);

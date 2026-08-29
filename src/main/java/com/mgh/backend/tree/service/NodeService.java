@@ -6,6 +6,7 @@ import com.mgh.backend.tree.domain.dto.CreateNodeRequestDto;
 import com.mgh.backend.tree.domain.dto.NodeResponseDto;
 import com.mgh.backend.tree.domain.dto.UpdateNodeRequestDto;
 import com.mgh.backend.tree.domain.entity.Node;
+import com.mgh.backend.tree.domain.snapshot.NodeSnapshot;
 import com.mgh.backend.tree.mapper.NodeMapper;
 import com.mgh.backend.tree.repository.NodePartnerRepository;
 import com.mgh.backend.tree.repository.NodeRepo;
@@ -26,15 +27,18 @@ public class NodeService {
     private final NodeMapper nodeMapper;
     private final NodePartnerRepository nodePartnerRepository;
     private final NodePartnerService nodePartnerService;
+    private final TreeAuditService treeAuditService;
 
     public NodeService(NodeRepo nodeRepo,
                        NodeMapper nodeMapper,
                        NodePartnerRepository nodePartnerRepository,
-                       NodePartnerService nodePartnerService) {
+                       NodePartnerService nodePartnerService,
+                       TreeAuditService treeAuditService) {
         this.nodeRepo = nodeRepo;
         this.nodeMapper = nodeMapper;
         this.nodePartnerRepository = nodePartnerRepository;
         this.nodePartnerService = nodePartnerService;
+        this.treeAuditService = treeAuditService;
     }
 
     @Transactional
@@ -71,9 +75,13 @@ public class NodeService {
         node.setIsAlive(request.getIsAlive());
         node.setCreatedBy(userId);
         node.setUpdatedBy(userId);
+        node.setVersion(0L);
 
         Node saved = nodeRepo.save(node);
         log.debug("Created node id={} nodeId={} under primary parent nodeId={}", saved.getId(), saved.getNodeId(), primaryParent.getNodeId());
+
+        NodeSnapshot after = NodeSnapshot.of(saved);
+        treeAuditService.recordNodeCreate(after, saved.getTree().getTreeId());
 
         return buildResponse(saved);
     }
@@ -83,6 +91,12 @@ public class NodeService {
         Node node = nodeRepo.findByNodeIdAndIsDeletedFalse(id)
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
 
+        if (request.getVersion() != null && !request.getVersion().equals(node.getVersion())) {
+            throw new org.springframework.orm.ObjectOptimisticLockingFailureException(Node.class, id);
+        }
+
+        NodeSnapshot before = NodeSnapshot.of(node);
+
         Long userId = currentUserId();
         node.setNodeName(request.getName().trim());
         node.setGender(request.getGender());
@@ -90,6 +104,10 @@ public class NodeService {
         node.setUpdatedBy(userId);
 
         Node saved = nodeRepo.save(node);
+
+        NodeSnapshot after = NodeSnapshot.of(saved);
+        treeAuditService.recordNodeUpdate(before, after, saved.getTree().getTreeId());
+
         return buildResponse(saved);
     }
 
@@ -110,9 +128,13 @@ public class NodeService {
         ghostNode.setIsAlive(true); // Default
         ghostNode.setCreatedBy(userId);
         ghostNode.setUpdatedBy(userId);
+        ghostNode.setVersion(0L);
 
         Node saved = nodeRepo.save(ghostNode);
         log.debug("Created ghost node id={} nodeId={} under treeId={}", saved.getId(), saved.getNodeId(), primaryNode.getTree().getTreeId());
+
+        NodeSnapshot after = NodeSnapshot.of(saved);
+        treeAuditService.recordNodeCreate(after, saved.getTree().getTreeId());
 
         return saved;
     }
