@@ -57,60 +57,17 @@ public class AuthService {
     // ===================================================================
 
     private Authentication getAuthentication(AuthRequestDto request) {
-
-        try {
-            return authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            request.getUsername(),
-                            request.getPassword()
-                    )
-            );
-        } catch (DisabledException e) {
-            throw new RuntimeException("User account is disabled");
-        }
+        return authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.getUsername(),
+                        request.getPassword()
+                )
+        );
     }
-
-//
-//    public AuthResponseDto login(AuthRequestDto request) {
-//
-//        // HTTP Request → SecurityFilterChain → AuthenticationManager → Your AuthenticationProvider
-//        Authentication authentication = getAuthentication(request);
-//
-//
-//        if (authentication.isAuthenticated()) {
-//            UserAuth userAuth = userAuthRepo.findByUsername(request.getUsername()).orElseThrow();
-//
-//            UserAuthAdapter userAuthAdapter = new UserAuthAdapter(userAuth);
-//
-//            TokenExpiryDto jwtTokenWithExpiry = jwtService.generateToken(userAuthAdapter);
-//            String jwtToken = jwtTokenWithExpiry.getToken();
-//            Instant expiration = jwtTokenWithExpiry.getExpiry();
-//
-//
-//            AuthResponseDto authResponseDto =  AuthResponseDto.builder()
-//                    .token(jwtToken)
-//                    .user(userToUserDto(userAuth))
-//                    .expiresIn(expiration)
-//                    .build();
-//
-//            return authResponseDto;
-//
-//        } else {
-//            throw new BadCredentialsException("Invalid username or password");
-//        }
-//    }
 
     public AuthResponseDto login(AuthRequestDto request) {
 
-        // ✅ 0️⃣ Manual validation FIRST (before Spring Security)
-        UserAuth user = userAuthRepo.findByUsername(request.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Incorrect password");
-        }
-
-        // 1️⃣ Authenticate (throws if invalid)
+        // 1️⃣ Authenticate (delegates to AuthenticationManager, throws AuthenticationException on bad credentials/status)
         Authentication authentication = getAuthentication(request);
 
         // 2️⃣ Authentication succeeded → get principal
@@ -129,7 +86,6 @@ public class AuthService {
 
     // ===================================================================
     // ===================================================================
-
 
     private UserDataDto userToUserDto(UserAuth userAuth) {
         return UserDataDto.builder()
