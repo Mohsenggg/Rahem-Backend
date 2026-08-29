@@ -1,6 +1,7 @@
 package com.mgh.backend.tree.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mgh.backend.auth.security.adapter.UserAuthAdapter;
 import com.mgh.backend.tree.domain.dto.TreeHistoryDto;
@@ -135,29 +136,19 @@ public class TreeAuditService {
                 .entityId(history.getEntityId())
                 .performedBy(history.getPerformedBy())
                 .performedAt(history.getPerformedAt())
-                .previousState(fromJson(history.getPreviousState()))
-                .newState(fromJson(history.getNewState()))
+                .previousState(history.getPreviousState())
+                .newState(history.getNewState())
                 .build();
     }
 
-    private String toJson(Object object) {
-        if (object == null) return null;
-        try {
-            return objectMapper.writeValueAsString(object);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to serialize snapshot to JSON", e);
+    private JsonNode toJson(Object object) {
+        if (object == null) {
+            return null;
         }
+
+        return objectMapper.valueToTree(object);
     }
 
-    private Object fromJson(String json) {
-        if (json == null || json.isBlank()) return null;
-        try {
-            return objectMapper.readValue(json, Object.class);
-        } catch (JsonProcessingException e) {
-            log.warn("Failed to parse JSON state in tree history: {}", json, e);
-            return json;
-        }
-    }
 
     private Long currentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

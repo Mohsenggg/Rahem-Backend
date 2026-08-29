@@ -1,5 +1,6 @@
 package com.mgh.backend.tree.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.mgh.backend.tree.domain.dto.TreeHistoryDto;
@@ -47,9 +48,11 @@ class TreeAuditServiceTest {
     }
 
     @Test
-    @DisplayName("recordNodeCreate saves TreeHistory with action CREATE, entityType NODE and serialized newState")
+    @DisplayName("recordNodeCreate saves TreeHistory with action CREATE, entityType NODE and newState")
     void recordNodeCreate_success() {
-        NodeSnapshot after = new NodeSnapshot(62L, "Jack", 10L, null, "MALE", true, 2L, false, 0L);
+        NodeSnapshot after = new NodeSnapshot(
+                62L, "Jack", 10L, null, "MALE", true, 2L, false, 0L
+        );
 
         treeAuditService.recordNodeCreate(after, 1L);
 
@@ -57,21 +60,30 @@ class TreeAuditServiceTest {
         verify(treeHistoryRepository).save(captor.capture());
 
         TreeHistory saved = captor.getValue();
+
         assertThat(saved.getTreeId()).isEqualTo(1L);
         assertThat(saved.getAction()).isEqualTo(AuditAction.CREATE);
         assertThat(saved.getEntityType()).isEqualTo(AuditEntityType.NODE);
         assertThat(saved.getEntityId()).isEqualTo(62L);
         assertThat(saved.getPreviousState()).isNull();
-        assertThat(saved.getNewState()).contains("\"nodeId\":62");
-        assertThat(saved.getNewState()).contains("\"nodeName\":\"Jack\"");
-        assertThat(saved.getNewState()).contains("\"isExternal\":false");
+
+        JsonNode newState = saved.getNewState();
+
+        assertThat(newState.get("nodeId").asLong()).isEqualTo(62L);
+        assertThat(newState.get("nodeName").asText()).isEqualTo("Jack");
+        assertThat(newState.get("isExternal").asBoolean()).isFalse();
     }
 
     @Test
-    @DisplayName("recordNodeUpdate saves TreeHistory with action UPDATE and both previousState and newState")
+    @DisplayName("recordNodeUpdate saves TreeHistory with action UPDATE and both states")
     void recordNodeUpdate_success() {
-        NodeSnapshot before = new NodeSnapshot(62L, "Jac", 10L, null, "MALE", true, 2L, false, 0L);
-        NodeSnapshot after  = new NodeSnapshot(62L, "Jack", 10L, null, "MALE", true, 2L, false, 1L);
+        NodeSnapshot before = new NodeSnapshot(
+                62L, "Jac", 10L, null, "MALE", true, 2L, false, 0L
+        );
+
+        NodeSnapshot after = new NodeSnapshot(
+                62L, "Jack", 10L, null, "MALE", true, 2L, false, 1L
+        );
 
         treeAuditService.recordNodeUpdate(before, after, 1L);
 
@@ -79,18 +91,28 @@ class TreeAuditServiceTest {
         verify(treeHistoryRepository).save(captor.capture());
 
         TreeHistory saved = captor.getValue();
+
         assertThat(saved.getTreeId()).isEqualTo(1L);
         assertThat(saved.getAction()).isEqualTo(AuditAction.UPDATE);
         assertThat(saved.getEntityType()).isEqualTo(AuditEntityType.NODE);
         assertThat(saved.getEntityId()).isEqualTo(62L);
-        assertThat(saved.getPreviousState()).contains("\"nodeName\":\"Jac\"");
-        assertThat(saved.getNewState()).contains("\"nodeName\":\"Jack\"");
+
+        JsonNode previousState = saved.getPreviousState();
+        JsonNode newState = saved.getNewState();
+
+        assertThat(previousState.get("nodeName").asText()).isEqualTo("Jac");
+        assertThat(newState.get("nodeName").asText()).isEqualTo("Jack");
+
+        assertThat(previousState.get("version").asLong()).isEqualTo(0L);
+        assertThat(newState.get("version").asLong()).isEqualTo(1L);
     }
 
     @Test
     @DisplayName("recordPartnerCreate saves TreeHistory with action CREATE and entityType PARTNER")
     void recordPartnerCreate_success() {
-        PartnerSnapshot after = new PartnerSnapshot(100L, 10L, 20L, "ACTIVE", true, null, null);
+        PartnerSnapshot after = new PartnerSnapshot(
+                100L, 10L, 20L, "ACTIVE", true, null, null
+        );
 
         treeAuditService.recordPartnerCreate(after, 1L);
 
@@ -98,19 +120,25 @@ class TreeAuditServiceTest {
         verify(treeHistoryRepository).save(captor.capture());
 
         TreeHistory saved = captor.getValue();
+
         assertThat(saved.getAction()).isEqualTo(AuditAction.CREATE);
         assertThat(saved.getEntityType()).isEqualTo(AuditEntityType.PARTNER);
         assertThat(saved.getEntityId()).isEqualTo(100L);
         assertThat(saved.getPreviousState()).isNull();
-        assertThat(saved.getNewState()).contains("\"partnershipId\":100");
-        assertThat(saved.getNewState()).contains("\"nodeId\":10");
-        assertThat(saved.getNewState()).contains("\"partnerId\":20");
+
+        JsonNode newState = saved.getNewState();
+
+        assertThat(newState.get("partnershipId").asLong()).isEqualTo(100L);
+        assertThat(newState.get("nodeId").asLong()).isEqualTo(10L);
+        assertThat(newState.get("partnerId").asLong()).isEqualTo(20L);
     }
 
     @Test
     @DisplayName("recordPartnerDelete saves TreeHistory with action DELETE and null newState")
     void recordPartnerDelete_success() {
-        PartnerSnapshot before = new PartnerSnapshot(100L, 10L, 20L, "ACTIVE", true, null, null);
+        PartnerSnapshot before = new PartnerSnapshot(
+                100L, 10L, 20L, "ACTIVE", true, null, null
+        );
 
         treeAuditService.recordPartnerDelete(before, 1L);
 
@@ -118,16 +146,30 @@ class TreeAuditServiceTest {
         verify(treeHistoryRepository).save(captor.capture());
 
         TreeHistory saved = captor.getValue();
+
         assertThat(saved.getAction()).isEqualTo(AuditAction.DELETE);
         assertThat(saved.getEntityType()).isEqualTo(AuditEntityType.PARTNER);
         assertThat(saved.getEntityId()).isEqualTo(100L);
-        assertThat(saved.getPreviousState()).contains("\"partnershipId\":100");
+
+        JsonNode previousState = saved.getPreviousState();
+
+        assertThat(previousState.get("partnershipId").asLong()).isEqualTo(100L);
         assertThat(saved.getNewState()).isNull();
     }
 
     @Test
-    @DisplayName("getTreeHistory returns paginated TreeHistoryDto with parsed JSON states")
+    @DisplayName("getTreeHistory returns paginated TreeHistoryDto with JSON states")
     void getTreeHistory_success() {
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        JsonNode previousState = objectMapper.createObjectNode()
+                .put("nodeId", 62L)
+                .put("nodeName", "Jac");
+
+        JsonNode newState = objectMapper.createObjectNode()
+                .put("nodeId", 62L)
+                .put("nodeName", "Jack");
+
         TreeHistory history = TreeHistory.builder()
                 .id(1L)
                 .treeId(1L)
@@ -136,23 +178,33 @@ class TreeAuditServiceTest {
                 .entityId(62L)
                 .performedBy(5L)
                 .performedAt(LocalDateTime.now())
-                .previousState("{\"nodeId\":62,\"nodeName\":\"Jac\"}")
-                .newState("{\"nodeId\":62,\"nodeName\":\"Jack\"}")
+                .previousState(previousState)
+                .newState(newState)
                 .build();
 
         Page<TreeHistory> page = new PageImpl<>(List.of(history));
-        when(treeHistoryRepository.findHistoryWithFilters(eq(1L), any(), any(), any(), any()))
-                .thenReturn(page);
+
+        when(treeHistoryRepository.findHistoryWithFilters(
+                eq(1L), any(), any(), any(), any()
+        )).thenReturn(page);
 
         Page<TreeHistoryDto> result = treeAuditService.getTreeHistory(
                 1L, null, null, null, PageRequest.of(0, 10)
         );
 
         assertThat(result.getTotalElements()).isEqualTo(1);
+
         TreeHistoryDto dto = result.getContent().get(0);
+
         assertThat(dto.getEntityId()).isEqualTo(62L);
-        assertThat(dto.getPreviousState()).isInstanceOf(Map.class);
-        assertThat(((Map<?, ?>) dto.getPreviousState()).get("nodeName")).isEqualTo("Jac");
-        assertThat(((Map<?, ?>) dto.getNewState()).get("nodeName")).isEqualTo("Jack");
-    }
-}
+
+        assertThat(dto.getPreviousState()).isNotNull();
+        assertThat(dto.getPreviousState().get("nodeName").asText())
+                .isEqualTo("Jac");
+
+        assertThat(dto.getNewState()).isNotNull();
+        assertThat(dto.getNewState().get("nodeName").asText())
+                .isEqualTo("Jack");
+    }}
+
+

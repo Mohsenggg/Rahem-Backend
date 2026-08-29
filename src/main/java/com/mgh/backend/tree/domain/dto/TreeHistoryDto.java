@@ -1,5 +1,6 @@
 package com.mgh.backend.tree.domain.dto;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.mgh.backend.tree.domain.enums.AuditAction;
 import com.mgh.backend.tree.domain.enums.AuditEntityType;
 import lombok.AllArgsConstructor;
@@ -22,6 +23,6 @@ public class TreeHistoryDto {
     private Long entityId;
     private Long performedBy;
     private LocalDateTime performedAt;
-    private Object previousState;
-    private Object newState;
+    private JsonNode previousState;
+    private JsonNode newState;
 }

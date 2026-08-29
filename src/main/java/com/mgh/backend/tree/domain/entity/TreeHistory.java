@@ -1,10 +1,13 @@
 package com.mgh.backend.tree.domain.entity;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.mgh.backend.tree.domain.enums.AuditAction;
 import com.mgh.backend.tree.domain.enums.AuditEntityType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -53,9 +56,11 @@ public class TreeHistory {
     @Column(name = "performed_at", nullable = false, updatable = false)
     private LocalDateTime performedAt;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "previous_state", columnDefinition = "jsonb")
-    private String previousState;
+    private JsonNode previousState;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "new_state", columnDefinition = "jsonb")
-    private String newState;
+    private JsonNode newState;
 }
