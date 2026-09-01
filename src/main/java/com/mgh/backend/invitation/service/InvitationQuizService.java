@@ -10,6 +10,7 @@ import com.mgh.backend.invitation.repository.InvitationSessionRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -48,12 +49,13 @@ public class InvitationQuizService {
         }
 
         if (session.isPassed()) {
-            return InvitationQuestionResponseDto.builder()
-                    .blocked(false)
-                    .quizPassed(true)
-                    .nextStep(InvitationQuizNextStep.GENERATE.name())
-                    .message("Quiz passed. You may generate an invitation code.")
-                    .build();
+            session.setPassed(false);
+            session.setAttemptCount(0);
+            session.setRound(1);
+            InvitationQuestion next = pickRandomQuestion();
+            session.setCurrentQuestionId(next.getId());
+            session.setExpiresAt(LocalDateTime.now().plusMinutes(sessionTtlMinutes));
+            sessionRepository.save(session);
         }
 
         InvitationQuestion question = questionRepository.findById(session.getCurrentQuestionId())
@@ -151,8 +153,8 @@ public class InvitationQuizService {
         }
     }
 
-    @Transactional
-    public void consumePassedSessionAfterSuccessfulInvite(Long userId) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void consumePassedSession(Long userId) {
         sessionRepository.findByUserId(userId).ifPresent(session -> {
             session.setPassed(false);
             session.setBlocked(false);
@@ -161,8 +163,13 @@ public class InvitationQuizService {
             InvitationQuestion next = pickRandomQuestion();
             session.setCurrentQuestionId(next.getId());
             session.setExpiresAt(LocalDateTime.now().plusMinutes(sessionTtlMinutes));
-            sessionRepository.save(session);
+            sessionRepository.saveAndFlush(session);
         });
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void consumePassedSessionAfterSuccessfulInvite(Long userId) {
+        consumePassedSession(userId);
     }
 
     private void refreshIfExpired(InvitationSession session) {

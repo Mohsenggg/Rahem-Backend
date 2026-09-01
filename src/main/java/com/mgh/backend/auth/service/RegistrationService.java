@@ -210,6 +210,10 @@ public class RegistrationService {
     public InvitationCodeResponseDto generateInvitationCode(InvitationCodeGenerateRequestDto request, Long userId) {
         invitationQuizService.assertEligibleForInvitationGeneration(userId);
 
+        // Always consume the quiz session immediately in an independent committed transaction.
+        // This ensures that even if node validation fails, the quiz pass is consumed.
+        invitationQuizService.consumePassedSession(userId);
+
         Long nodeId = request.getNodeId();
         Node node = nodeRepo.findByNodeIdAndIsDeletedFalse(nodeId)
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
@@ -233,8 +237,6 @@ public class RegistrationService {
         node.setInvitationCode(encrypted);
         node.setStatus(TreeNodeStatus.INACTIVE);
         nodeRepo.save(node);
-
-        invitationQuizService.consumePassedSessionAfterSuccessfulInvite(userId);
 
         return new InvitationCodeResponseDto(encrypted);
     }
