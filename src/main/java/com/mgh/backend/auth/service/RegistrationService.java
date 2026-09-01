@@ -68,21 +68,32 @@ public class RegistrationService {
             parentName = nodeRepo.findByNodeIdAndIsDeletedFalse(node.getMotherId()).map(Node::getNodeName).orElse("");
         }
 
+        String gender = node.getGender() != null ? node.getGender().name() : null;
         TreeNodeStatus status = node.getStatus();
         if (status == TreeNodeStatus.INACTIVE) {
             return RegistrationInitiateResponseDto.builder()
+                    .nodeId(node.getNodeId())
                     .firstName(node.getNodeName())
                     .parentName(parentName)
+                    .gender(gender)
                     .status(status)
                     .message("Register Now")
                     .build();
         } else if (status == TreeNodeStatus.PENDING) {
             return RegistrationInitiateResponseDto.builder()
+                    .nodeId(node.getNodeId())
+                    .firstName(node.getNodeName())
+                    .parentName(parentName)
+                    .gender(gender)
                     .status(status)
                     .message("Your registration is waiting for approval.")
                     .build();
         } else {
             return RegistrationInitiateResponseDto.builder()
+                    .nodeId(node.getNodeId())
+                    .firstName(node.getNodeName())
+                    .parentName(parentName)
+                    .gender(gender)
                     .status(status)
                     .message("Your profile is already activated. Please login.")
                     .build();
@@ -202,6 +213,16 @@ public class RegistrationService {
         Long nodeId = request.getNodeId();
         Node node = nodeRepo.findByNodeIdAndIsDeletedFalse(nodeId)
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
+
+        if (node.getStatus() == TreeNodeStatus.ACTIVATED || node.getUserId() != null) {
+            throw new IllegalStateException("Cannot generate invitation code: This node is already registered and activated.");
+        }
+        if (node.getStatus() == TreeNodeStatus.PENDING) {
+            throw new IllegalStateException("Cannot generate invitation code: Registration for this node is currently pending approval.");
+        }
+        if (node.getStatus() == TreeNodeStatus.LOCKED) {
+            throw new IllegalStateException("Cannot generate invitation code: This node is locked.");
+        }
 
         log.info("==================================");
         log.info("generated node Id >>>> {}", nodeId);

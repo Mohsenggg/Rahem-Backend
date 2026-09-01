@@ -43,6 +43,9 @@ class AuthServiceTest {
     private RegistrationService registrationService;
 
     @Mock
+    private com.mgh.backend.auth.repository.UserProfileRepository userProfileRepository;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     @Mock

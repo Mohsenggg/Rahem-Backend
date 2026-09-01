@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.time.LocalDate;
 
     @Data
     public class RegisterRequestDto {
@@ -23,5 +24,8 @@ import lombok.Data;
 
         private String fullName;
         private String phone;
+        private LocalDate birthDate;
+        private String gender;
+        private String address;
         private String invitationCode;
     }

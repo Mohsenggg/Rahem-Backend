@@ -2,24 +2,25 @@ package com.mgh.backend.auth.service;
 
 import com.mgh.backend.auth.domain.dto.*;
 import com.mgh.backend.auth.domain.entity.UserAuth;
+import com.mgh.backend.auth.domain.entity.UserProfile;
 import com.mgh.backend.auth.domain.enums.Role;
 import com.mgh.backend.auth.repository.UserAuthRepo;
+import com.mgh.backend.auth.repository.UserProfileRepository;
 import com.mgh.backend.auth.security.service.JwtService;
 import com.mgh.backend.auth.security.adapter.UserAuthAdapter;
 import com.mgh.backend.tree.domain.entity.Node;
+import com.mgh.backend.tree.domain.enums.TreeNodeStatus;
 import com.mgh.backend.tree.repository.NodeRepo;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.stereotype.Service;
-
 import org.springframework.security.crypto.password.PasswordEncoder;
-
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -32,44 +33,63 @@ public class AuthService {
     private final UserAuthRepo userAuthRepo;
     private final NodeRepo nodeRepo;
     private final RegistrationService registrationService;
+    private final UserProfileRepository userProfileRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
 
-    public AuthResponseDto register(RegisterRequestDto registerRequestDto) {
-        String fullName = registerRequestDto.getFullName();
+    @Transactional
+    public AuthResponseDto register(RegisterRequestDto dto) {
+        // ── 1. Resolve the node linked to this invitation code ──────────────
         Node node = null;
+        String fullName = dto.getFullName();
 
-        if (registerRequestDto.getInvitationCode() != null && !registerRequestDto.getInvitationCode().isBlank()) {
-            try {
-                Long nodeId = registrationService.validateAndExtractNodeId(registerRequestDto.getInvitationCode());
-                node = nodeRepo.findByNodeIdAndIsDeletedFalse(nodeId).orElse(null);
-                if (node != null) {
-                    String parentName = "";
-                    if (node.getFatherId() != null) {
-                        parentName = nodeRepo.findByNodeIdAndIsDeletedFalse(node.getFatherId()).map(Node::getNodeName).orElse("");
-                    } else if (node.getMotherId() != null) {
-                        parentName = nodeRepo.findByNodeIdAndIsDeletedFalse(node.getMotherId()).map(Node::getNodeName).orElse("");
-                    }
-                    if (fullName == null || fullName.isBlank()) {
-                        fullName = (node.getNodeName() + (parentName.isBlank() ? "" : " " + parentName)).trim();
-                    }
+        if (dto.getInvitationCode() != null && !dto.getInvitationCode().isBlank()) {
+            Long nodeId = registrationService.validateAndExtractNodeId(dto.getInvitationCode());
+            node = nodeRepo.findByNodeIdAndIsDeletedFalse(nodeId)
+                    .orElseThrow(() -> new IllegalArgumentException("Node not found for this invitation code"));
+
+            // Validate invitation code matches the node's stored code
+            if (!dto.getInvitationCode().equals(node.getInvitationCode())) {
+                throw new IllegalArgumentException("Invitation code does not match");
+            }
+
+            // ── 2. Guard: only INACTIVE nodes can register ──────────────────
+            if (node.getStatus() == TreeNodeStatus.ACTIVATED) {
+                throw new IllegalStateException("This invitation has already been used. Please log in instead.");
+            }
+            if (node.getStatus() == TreeNodeStatus.PENDING) {
+                throw new IllegalStateException("A registration for this invitation is pending approval.");
+            }
+            if (node.getStatus() == TreeNodeStatus.LOCKED) {
+                throw new IllegalStateException("This invitation is locked. Please contact the administrator.");
+            }
+
+            // Derive fullName from node if caller didn't supply one
+            if (fullName == null || fullName.isBlank()) {
+                String parentName = "";
+                if (node.getFatherId() != null) {
+                    parentName = nodeRepo.findByNodeIdAndIsDeletedFalse(node.getFatherId())
+                            .map(Node::getNodeName).orElse("");
+                } else if (node.getMotherId() != null) {
+                    parentName = nodeRepo.findByNodeIdAndIsDeletedFalse(node.getMotherId())
+                            .map(Node::getNodeName).orElse("");
                 }
-            } catch (Exception ignored) {
+                fullName = (node.getNodeName() + (parentName.isBlank() ? "" : " " + parentName)).trim();
             }
         }
 
         if (fullName == null || fullName.isBlank()) {
-            fullName = registerRequestDto.getUsername();
+            fullName = dto.getUsername();
         }
 
-        // Create new userAuth
+        // ── 3. Create UserAuth ───────────────────────────────────────────────
         UserAuth userAuth = UserAuth.builder()
-                .username(registerRequestDto.getUsername())
-                .email(registerRequestDto.getEmail())
+                .username(dto.getUsername())
+                .email(dto.getEmail())
                 .fullName(fullName)
-                .phone(registerRequestDto.getPhone())
-                .password(passwordEncoder.encode(registerRequestDto.getPassword()))
+                .phone(dto.getPhone())
+                .password(passwordEncoder.encode(dto.getPassword()))
                 .enabled(true)
                 .locked(false)
                 .role(Role.USER)
@@ -77,12 +97,25 @@ public class AuthService {
 
         userAuth = userAuthRepo.save(userAuth);
 
+        // ── 4. Create UserProfile (birthDate / gender / address) ─────────────
+        if (dto.getBirthDate() != null || dto.getGender() != null || dto.getAddress() != null) {
+            UserProfile profile = UserProfile.builder()
+                    .userAuth(userAuth)
+                    .birthDate(dto.getBirthDate())
+                    .gender(dto.getGender())
+                    .address(dto.getAddress())
+                    .build();
+            userProfileRepository.save(profile);
+        }
+
+        // ── 5. Activate the node ─────────────────────────────────────────────
         if (node != null) {
             node.setUserId(userAuth.getId());
-            node.setStatus(com.mgh.backend.tree.domain.enums.TreeNodeStatus.ACTIVATED);
+            node.setStatus(TreeNodeStatus.ACTIVATED);
             nodeRepo.save(node);
         }
 
+        // ── 6. Issue JWT ─────────────────────────────────────────────────────
         UserAuthAdapter userAuthAdapter = new UserAuthAdapter(userAuth);
         TokenExpiryDto tokenWithExpiry = jwtService.generateToken(userAuthAdapter);
 
