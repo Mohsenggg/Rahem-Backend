@@ -19,6 +19,8 @@ public interface NodeRepo extends JpaRepository<Node, Long> {
 
     Optional<Node> findByIdAndIsDeletedFalse(Long id);
 
+    Optional<Node> findFirstByUserIdAndIsDeletedFalse(Long userId);
+
     @Query("SELECT MAX(n.nodeId) FROM Node n")
     Long findMaxNodeId();
 }

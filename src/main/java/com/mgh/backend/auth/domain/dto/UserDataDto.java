@@ -16,5 +16,7 @@ import java.util.Set;
         private Long id;
         private String username;
         private String email;
+        private String fullName;
+        private String nodeName;
         private Set<Role> roles;
     }

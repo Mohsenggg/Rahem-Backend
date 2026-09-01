@@ -6,8 +6,9 @@ import com.mgh.backend.auth.domain.enums.Role;
 import com.mgh.backend.auth.repository.UserAuthRepo;
 import com.mgh.backend.auth.security.service.JwtService;
 import com.mgh.backend.auth.security.adapter.UserAuthAdapter;
+import com.mgh.backend.tree.domain.entity.Node;
+import com.mgh.backend.tree.repository.NodeRepo;
 import lombok.RequiredArgsConstructor;
-import org.apache.catalina.User;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -29,28 +30,67 @@ import java.util.Map;
 public class AuthService {
 
     private final UserAuthRepo userAuthRepo;
+    private final NodeRepo nodeRepo;
+    private final RegistrationService registrationService;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
 
-    public ResponseEntity<Map<String, String>> register(RegisterRequestDto registerRequestDto) {
+    public AuthResponseDto register(RegisterRequestDto registerRequestDto) {
+        String fullName = registerRequestDto.getFullName();
+        Node node = null;
+
+        if (registerRequestDto.getInvitationCode() != null && !registerRequestDto.getInvitationCode().isBlank()) {
+            try {
+                Long nodeId = registrationService.validateAndExtractNodeId(registerRequestDto.getInvitationCode());
+                node = nodeRepo.findByNodeIdAndIsDeletedFalse(nodeId).orElse(null);
+                if (node != null) {
+                    String parentName = "";
+                    if (node.getFatherId() != null) {
+                        parentName = nodeRepo.findByNodeIdAndIsDeletedFalse(node.getFatherId()).map(Node::getNodeName).orElse("");
+                    } else if (node.getMotherId() != null) {
+                        parentName = nodeRepo.findByNodeIdAndIsDeletedFalse(node.getMotherId()).map(Node::getNodeName).orElse("");
+                    }
+                    if (fullName == null || fullName.isBlank()) {
+                        fullName = (node.getNodeName() + (parentName.isBlank() ? "" : " " + parentName)).trim();
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        if (fullName == null || fullName.isBlank()) {
+            fullName = registerRequestDto.getUsername();
+        }
 
         // Create new userAuth
         UserAuth userAuth = UserAuth.builder()
                 .username(registerRequestDto.getUsername())
                 .email(registerRequestDto.getEmail())
-                .fullName(registerRequestDto.getFullName())
-//                .lastName(request.getLastName())
+                .fullName(fullName)
+                .phone(registerRequestDto.getPhone())
                 .password(passwordEncoder.encode(registerRequestDto.getPassword()))
                 .enabled(true)
                 .locked(false)
                 .role(Role.USER)
                 .build();
 
-        userAuthRepo.save(userAuth);
+        userAuth = userAuthRepo.save(userAuth);
 
-        return ResponseEntity.ok(Collections.singletonMap("message", "User registered successfully"));
+        if (node != null) {
+            node.setUserId(userAuth.getId());
+            node.setStatus(com.mgh.backend.tree.domain.enums.TreeNodeStatus.ACTIVATED);
+            nodeRepo.save(node);
+        }
 
+        UserAuthAdapter userAuthAdapter = new UserAuthAdapter(userAuth);
+        TokenExpiryDto tokenWithExpiry = jwtService.generateToken(userAuthAdapter);
+
+        return AuthResponseDto.builder()
+                .token(tokenWithExpiry.getToken())
+                .user(userToUserDto(userAuth))
+                .expiresIn(tokenWithExpiry.getExpiry())
+                .build();
     }
 
     // ===================================================================
@@ -88,10 +128,30 @@ public class AuthService {
     // ===================================================================
 
     private UserDataDto userToUserDto(UserAuth userAuth) {
+        String nodeName = null;
+        if (userAuth.getId() != null) {
+            nodeName = nodeRepo.findFirstByUserIdAndIsDeletedFalse(userAuth.getId())
+                    .map(Node::getNodeName)
+                    .orElse(null);
+        }
+        if (nodeName == null || nodeName.isBlank()) {
+            nodeName = userAuth.getFullName();
+        }
+        if (nodeName == null || nodeName.isBlank()) {
+            nodeName = userAuth.getUsername();
+        }
+
+        String fullName = userAuth.getFullName();
+        if (fullName == null || fullName.isBlank()) {
+            fullName = nodeName;
+        }
+
         return UserDataDto.builder()
                 .id(userAuth.getId())
                 .username(userAuth.getUsername())
                 .email(userAuth.getEmail())
+                .fullName(fullName)
+                .nodeName(nodeName)
                 .roles(Collections.singleton(userAuth.getRole()))
                 .build();
     }

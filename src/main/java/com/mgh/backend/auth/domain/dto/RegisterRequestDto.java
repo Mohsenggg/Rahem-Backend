@@ -22,4 +22,6 @@ import lombok.Data;
         private String password;
 
         private String fullName;
+        private String phone;
+        private String invitationCode;
     }

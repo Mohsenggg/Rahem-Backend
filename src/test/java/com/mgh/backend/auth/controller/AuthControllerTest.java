@@ -3,6 +3,7 @@ package com.mgh.backend.auth.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mgh.backend.auth.domain.dto.AuthRequestDto;
 import com.mgh.backend.auth.domain.dto.AuthResponseDto;
+import com.mgh.backend.auth.domain.dto.RegisterRequestDto;
 import com.mgh.backend.auth.domain.dto.UserDataDto;
 import com.mgh.backend.auth.domain.enums.Role;
 import com.mgh.backend.auth.service.AuthService;
@@ -107,5 +108,30 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.error").value("Forbidden"))
                 .andExpect(jsonPath("$.message").value("User account is disabled"))
                 .andExpect(jsonPath("$.path").value("/api/auth/login"));
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/register returns 200 OK with AuthResponseDto containing token")
+    void register_success() throws Exception {
+        RegisterRequestDto request = new RegisterRequestDto();
+        request.setUsername("newuser");
+        request.setEmail("newuser@example.com");
+        request.setPassword("password123");
+        request.setFullName("New User");
+
+        AuthResponseDto response = AuthResponseDto.builder()
+                .token("jwt.register.token")
+                .user(UserDataDto.builder().id(2L).username("newuser").roles(Set.of(Role.USER)).build())
+                .expiresIn(Instant.now().plusSeconds(3600))
+                .build();
+
+        when(authService.register(any(RegisterRequestDto.class))).thenReturn(response);
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("jwt.register.token"))
+                .andExpect(jsonPath("$.user.username").value("newuser"));
     }
 }

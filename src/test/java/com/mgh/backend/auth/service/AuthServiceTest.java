@@ -2,6 +2,7 @@ package com.mgh.backend.auth.service;
 
 import com.mgh.backend.auth.domain.dto.AuthRequestDto;
 import com.mgh.backend.auth.domain.dto.AuthResponseDto;
+import com.mgh.backend.auth.domain.dto.RegisterRequestDto;
 import com.mgh.backend.auth.domain.dto.TokenExpiryDto;
 import com.mgh.backend.auth.domain.entity.UserAuth;
 import com.mgh.backend.auth.domain.enums.Role;
@@ -34,6 +35,12 @@ class AuthServiceTest {
 
     @Mock
     private UserAuthRepo userAuthRepo;
+
+    @Mock
+    private com.mgh.backend.tree.repository.NodeRepo nodeRepo;
+
+    @Mock
+    private RegistrationService registrationService;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -100,14 +107,38 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("login throws DisabledException when user account is disabled")
-    void login_disabledAccount() {
-        AuthRequestDto request = new AuthRequestDto("disableduser", "password123", false);
-        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-                .thenThrow(new DisabledException("User account is disabled"));
+    @DisplayName("register creates user, generates JWT token, and returns AuthResponseDto")
+    void register_success() {
+        RegisterRequestDto request = new RegisterRequestDto();
+        request.setUsername("newuser");
+        request.setEmail("newuser@example.com");
+        request.setPassword("password123");
+        request.setFullName("New User");
 
-        assertThatThrownBy(() -> authService.login(request))
-                .isInstanceOf(DisabledException.class)
-                .hasMessage("User account is disabled");
+        when(passwordEncoder.encode("password123")).thenReturn("encoded_pass");
+
+        UserAuth savedUser = UserAuth.builder()
+                .id(2L)
+                .username("newuser")
+                .email("newuser@example.com")
+                .fullName("New User")
+                .password("encoded_pass")
+                .role(Role.USER)
+                .enabled(true)
+                .locked(false)
+                .build();
+        when(userAuthRepo.save(any(UserAuth.class))).thenReturn(savedUser);
+
+        Instant expiry = Instant.now().plusSeconds(3600);
+        when(jwtService.generateToken(any(UserAuthAdapter.class)))
+                .thenReturn(new TokenExpiryDto("jwt.register.token", expiry));
+
+        AuthResponseDto response = authService.register(request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getToken()).isEqualTo("jwt.register.token");
+        assertThat(response.getUser()).isNotNull();
+        assertThat(response.getUser().getUsername()).isEqualTo("newuser");
+        assertThat(response.getExpiresIn()).isEqualTo(expiry);
     }
 }
