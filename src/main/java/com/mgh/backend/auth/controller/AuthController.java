@@ -19,7 +19,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "http://localhost:4200") // should be removed and configured with the filter chain
+@CrossOrigin(origins = {"http://localhost:4200", "https://rahem-social.web.app"}) // should be removed and configured with the filter chain
 
 public class AuthController {
 
