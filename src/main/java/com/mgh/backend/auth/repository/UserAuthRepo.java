@@ -10,4 +10,6 @@ import java.util.Optional;
 @Repository
 public interface UserAuthRepo extends JpaRepository<UserAuth, Long> {
     Optional<UserAuth> findByUsername(String username);
+
+    boolean existsByUsernameIgnoreCase(String username);
 }

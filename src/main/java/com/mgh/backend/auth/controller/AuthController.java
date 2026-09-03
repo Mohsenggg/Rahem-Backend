@@ -14,6 +14,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
+
 @RestController
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = "http://localhost:4200") // should be removed and configured with the filter chain
@@ -74,5 +77,15 @@ public class AuthController {
         String approvedBy = authentication != null ? authentication.getName() : "system";
         String fullName = registrationService.approveRegistration(id, approvedBy);
         return ResponseEntity.ok("Welcome "+fullName +" Your Account Created Successfully.");
+    }
+
+    /**
+     * Public endpoint – no authentication required.
+     * Returns {"available": true} when the username is free, {"available": false} when taken.
+     */
+    @GetMapping("/check-username")
+    public ResponseEntity<Map<String, Boolean>> checkUsername(@RequestParam String username) {
+        boolean available = authService.isUsernameAvailable(username);
+        return ResponseEntity.ok(Map.of("available", available));
     }
 }

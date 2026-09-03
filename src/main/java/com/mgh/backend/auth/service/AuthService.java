@@ -189,4 +189,13 @@ public class AuthService {
                 .build();
     }
 
+    /**
+     * Returns true when the username is not yet taken (case-insensitive).
+     * Used by the registration form for real-time availability feedback.
+     */
+    public boolean isUsernameAvailable(String username) {
+        if (username == null || username.isBlank()) return false;
+        return !userAuthRepo.existsByUsernameIgnoreCase(username.trim());
+    }
+
 }
