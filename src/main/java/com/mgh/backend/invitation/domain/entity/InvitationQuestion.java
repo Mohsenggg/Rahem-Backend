@@ -14,7 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class InvitationQuestion {
-
+//dd
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
