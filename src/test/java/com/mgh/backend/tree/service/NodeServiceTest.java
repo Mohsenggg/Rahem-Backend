@@ -186,4 +186,102 @@ class NodeServiceTest {
         verify(nodeRepo, never()).save(any());
         verify(treeAuditService, never()).recordNodeUpdate(any(), any(), any());
     }
+
+    @Test
+    @DisplayName("createNode with external father assigns level based on in-tree mother")
+    void createNode_withExternalFather_calculatesLevelFromInTreeMother() {
+        Node externalFather = new Node();
+        externalFather.setId(10L);
+        externalFather.setNodeId(10L);
+        externalFather.setNodeName("Ghost Father");
+        externalFather.setGender(Gender.MALE);
+        externalFather.setLevel(-1L);
+        externalFather.setIsExternal(true);
+        externalFather.setTree(tree);
+        externalFather.setIsDeleted(false);
+
+        Node inTreeMother = new Node();
+        inTreeMother.setId(20L);
+        inTreeMother.setNodeId(20L);
+        inTreeMother.setNodeName("In-Tree Mother");
+        inTreeMother.setGender(Gender.FEMALE);
+        inTreeMother.setLevel(2L);
+        inTreeMother.setIsExternal(false);
+        inTreeMother.setTree(tree);
+        inTreeMother.setIsDeleted(false);
+
+        when(nodeRepo.findByNodeIdAndIsDeletedFalse(10L)).thenReturn(Optional.of(externalFather));
+        when(nodeRepo.findByNodeIdAndIsDeletedFalse(20L)).thenReturn(Optional.of(inTreeMother));
+        when(nodeRepo.findMaxNodeId()).thenReturn(20L);
+
+        ArgumentCaptor<Node> nodeCaptor = ArgumentCaptor.forClass(Node.class);
+        when(nodeRepo.save(nodeCaptor.capture())).thenAnswer(inv -> {
+            Node n = inv.getArgument(0);
+            n.setId(21L);
+            return n;
+        });
+
+        CreateNodeRequestDto request = new CreateNodeRequestDto();
+        request.setName("Child");
+        request.setGender(Gender.MALE);
+        request.setIsAlive(true);
+        request.setFatherId(10L);
+        request.setMotherId(20L);
+
+        NodeResponseDto response = nodeService.createNode(request);
+
+        assertThat(response).isNotNull();
+        Node savedNode = nodeCaptor.getValue();
+        assertThat(savedNode.getLevel()).isEqualTo(3L); // mother's level (2) + 1
+        assertThat(savedNode.getFatherId()).isEqualTo(10L);
+        assertThat(savedNode.getMotherId()).isEqualTo(20L);
+    }
+
+    @Test
+    @DisplayName("createNode with external mother assigns level based on in-tree father")
+    void createNode_withExternalMother_calculatesLevelFromInTreeFather() {
+        Node inTreeFather = new Node();
+        inTreeFather.setId(10L);
+        inTreeFather.setNodeId(10L);
+        inTreeFather.setNodeName("In-Tree Father");
+        inTreeFather.setGender(Gender.MALE);
+        inTreeFather.setLevel(1L);
+        inTreeFather.setIsExternal(false);
+        inTreeFather.setTree(tree);
+        inTreeFather.setIsDeleted(false);
+
+        Node externalMother = new Node();
+        externalMother.setId(20L);
+        externalMother.setNodeId(20L);
+        externalMother.setNodeName("Ghost Mother");
+        externalMother.setGender(Gender.FEMALE);
+        externalMother.setLevel(-1L);
+        externalMother.setIsExternal(true);
+        externalMother.setTree(tree);
+        externalMother.setIsDeleted(false);
+
+        when(nodeRepo.findByNodeIdAndIsDeletedFalse(10L)).thenReturn(Optional.of(inTreeFather));
+        when(nodeRepo.findByNodeIdAndIsDeletedFalse(20L)).thenReturn(Optional.of(externalMother));
+        when(nodeRepo.findMaxNodeId()).thenReturn(20L);
+
+        ArgumentCaptor<Node> nodeCaptor = ArgumentCaptor.forClass(Node.class);
+        when(nodeRepo.save(nodeCaptor.capture())).thenAnswer(inv -> {
+            Node n = inv.getArgument(0);
+            n.setId(21L);
+            return n;
+        });
+
+        CreateNodeRequestDto request = new CreateNodeRequestDto();
+        request.setName("Child");
+        request.setGender(Gender.MALE);
+        request.setIsAlive(true);
+        request.setFatherId(10L);
+        request.setMotherId(20L);
+
+        NodeResponseDto response = nodeService.createNode(request);
+
+        assertThat(response).isNotNull();
+        Node savedNode = nodeCaptor.getValue();
+        assertThat(savedNode.getLevel()).isEqualTo(2L); // father's level (1) + 1
+    }
 }

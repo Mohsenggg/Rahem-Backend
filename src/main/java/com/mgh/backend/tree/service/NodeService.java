@@ -47,16 +47,20 @@ public class NodeService {
             throw new IllegalArgumentException("At least fatherId or motherId must be provided");
         }
 
-        Long primaryParentId = request.getFatherId() != null ? request.getFatherId() : request.getMotherId();
-        Node primaryParent = nodeRepo.findByNodeIdAndIsDeletedFalse(primaryParentId)
-                .orElseThrow(() -> new EntityNotFoundException("Primary parent node not found"));
-
+        Node primaryParent;
         if (request.getFatherId() != null && request.getMotherId() != null) {
-            Node secondaryParent = nodeRepo.findByNodeIdAndIsDeletedFalse(request.getMotherId())
-                    .orElseThrow(() -> new EntityNotFoundException("Secondary parent node not found"));
-            if (!secondaryParent.getTree().getTreeId().equals(primaryParent.getTree().getTreeId())) {
+            Node father = nodeRepo.findByNodeIdAndIsDeletedFalse(request.getFatherId())
+                    .orElseThrow(() -> new EntityNotFoundException("Father node not found"));
+            Node mother = nodeRepo.findByNodeIdAndIsDeletedFalse(request.getMotherId())
+                    .orElseThrow(() -> new EntityNotFoundException("Mother node not found"));
+            if (!mother.getTree().getTreeId().equals(father.getTree().getTreeId())) {
                 throw new IllegalArgumentException("Parents must belong to the same tree");
             }
+            primaryParent = Boolean.TRUE.equals(father.getIsExternal()) ? mother : father;
+        } else {
+            Long primaryParentId = request.getFatherId() != null ? request.getFatherId() : request.getMotherId();
+            primaryParent = nodeRepo.findByNodeIdAndIsDeletedFalse(primaryParentId)
+                    .orElseThrow(() -> new EntityNotFoundException("Primary parent node not found"));
         }
 
         Long maxNodeId = nodeRepo.findMaxNodeId();
