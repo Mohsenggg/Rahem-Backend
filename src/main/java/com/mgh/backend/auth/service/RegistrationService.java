@@ -186,6 +186,7 @@ public class RegistrationService {
 
         UserProfile userProfile = UserProfile.builder()
                 .userAuth(userAuth)
+                .nodeId(node.getNodeId())
                 .birthDate(registerForm.getBirthDate())
                 .gender(registerForm.getGender())
                 .address(registerForm.getAddress())

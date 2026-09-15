@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -109,10 +110,12 @@ public class AuthService {
 
         userAuth = userAuthRepo.save(userAuth);
 
-        // ── 5. Create UserProfile (birthDate / gender / address) ─────────────
-        if (dto.getBirthDate() != null || dto.getGender() != null || dto.getAddress() != null) {
+        // ── 5. Create UserProfile (nodeId / birthDate / gender / address) ─────────────
+        Long linkedNodeId = node != null ? node.getNodeId() : null;
+        if (dto.getBirthDate() != null || dto.getGender() != null || dto.getAddress() != null || linkedNodeId != null) {
             UserProfile profile = UserProfile.builder()
                     .userAuth(userAuth)
+                    .nodeId(linkedNodeId)
                     .birthDate(dto.getBirthDate())
                     .gender(dto.getGender())
                     .address(dto.getAddress())
@@ -174,10 +177,14 @@ public class AuthService {
 
     private UserDataDto userToUserDto(UserAuth userAuth) {
         String nodeName = null;
+        Long nodeId = null;
         if (userAuth.getId() != null) {
-            nodeName = nodeRepo.findFirstByUserIdAndIsDeletedFalse(userAuth.getId())
-                    .map(Node::getNodeName)
-                    .orElse(null);
+            Optional<Node> nodeOpt = nodeRepo.findFirstByUserIdAndIsDeletedFalse(userAuth.getId());
+            if (nodeOpt.isPresent()) {
+                Node node = nodeOpt.get();
+                nodeName = node.getNodeName();
+                nodeId = node.getNodeId();
+            }
         }
         if (nodeName == null || nodeName.isBlank()) {
             nodeName = userAuth.getFullName();
@@ -197,6 +204,7 @@ public class AuthService {
                 .email(userAuth.getEmail())
                 .fullName(fullName)
                 .nodeName(nodeName)
+                .nodeId(nodeId)
                 .roles(Collections.singleton(userAuth.getRole()))
                 .build();
     }

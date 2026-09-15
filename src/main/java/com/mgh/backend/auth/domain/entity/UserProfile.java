@@ -28,6 +28,9 @@ public class UserProfile {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private UserAuth userAuth;
 
+    @Column(name = "node_id")
+    private Long nodeId;
+
     @Column(length = 1024)
     private String biography;
 

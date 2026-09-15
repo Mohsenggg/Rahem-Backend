@@ -18,5 +18,6 @@ import java.util.Set;
         private String email;
         private String fullName;
         private String nodeName;
+        private Long nodeId;
         private Set<Role> roles;
     }

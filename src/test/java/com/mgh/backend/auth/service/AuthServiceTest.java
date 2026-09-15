@@ -23,7 +23,13 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.mgh.backend.auth.domain.entity.UserProfile;
+import com.mgh.backend.tree.domain.entity.Node;
+import com.mgh.backend.tree.domain.enums.TreeNodeStatus;
+import org.mockito.ArgumentCaptor;
+
 import java.time.Instant;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -143,5 +149,76 @@ class AuthServiceTest {
         assertThat(response.getUser()).isNotNull();
         assertThat(response.getUser().getUsername()).isEqualTo("newuser");
         assertThat(response.getExpiresIn()).isEqualTo(expiry);
+    }
+
+    @Test
+    @DisplayName("login with linked node returns nodeId and nodeName in user dto")
+    void login_withLinkedNode_populatesNodeIdAndNodeName() {
+        AuthRequestDto request = new AuthRequestDto("testuser", "password123", false);
+        Authentication authentication = mock(Authentication.class);
+        when(authentication.getPrincipal()).thenReturn(testUserAdapter);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(authentication);
+
+        Node linkedNode = new Node();
+        linkedNode.setId(100L);
+        linkedNode.setNodeId(42L);
+        linkedNode.setNodeName("Node 42");
+        when(nodeRepo.findFirstByUserIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(linkedNode));
+
+        Instant expiry = Instant.now().plusSeconds(3600);
+        when(jwtService.generateToken(testUserAdapter))
+                .thenReturn(new TokenExpiryDto("jwt.mock.token", expiry));
+
+        AuthResponseDto response = authService.login(request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getUser().getNodeId()).isEqualTo(42L);
+        assertThat(response.getUser().getNodeName()).isEqualTo("Node 42");
+    }
+
+    @Test
+    @DisplayName("register with invitation code persists UserProfile with linked nodeId")
+    void register_withInvitationCode_savesUserProfileWithNodeId() {
+        RegisterRequestDto request = new RegisterRequestDto();
+        request.setUsername("invitedUser");
+        request.setEmail("invited@example.com");
+        request.setPassword("password123");
+        request.setInvitationCode("VALID_CODE");
+
+        Node invitedNode = new Node();
+        invitedNode.setId(50L);
+        invitedNode.setNodeId(77L);
+        invitedNode.setNodeName("Ali");
+        invitedNode.setInvitationCode("VALID_CODE");
+        invitedNode.setStatus(TreeNodeStatus.INACTIVE);
+
+        when(registrationService.validateAndExtractNodeId("VALID_CODE")).thenReturn(77L);
+        when(nodeRepo.findByNodeIdAndIsDeletedFalse(77L)).thenReturn(Optional.of(invitedNode));
+        when(passwordEncoder.encode("password123")).thenReturn("encoded_pass");
+
+        UserAuth savedUser = UserAuth.builder()
+                .id(10L)
+                .username("invitedUser")
+                .email("invited@example.com")
+                .fullName("Ali")
+                .password("encoded_pass")
+                .role(Role.USER)
+                .enabled(true)
+                .locked(false)
+                .build();
+        when(userAuthRepo.save(any(UserAuth.class))).thenReturn(savedUser);
+
+        when(jwtService.generateToken(any(UserAuthAdapter.class)))
+                .thenReturn(new TokenExpiryDto("jwt.reg.token", Instant.now().plusSeconds(3600)));
+
+        authService.register(request);
+
+        ArgumentCaptor<UserProfile> profileCaptor = ArgumentCaptor.forClass(UserProfile.class);
+        verify(userProfileRepository).save(profileCaptor.capture());
+
+        UserProfile savedProfile = profileCaptor.getValue();
+        assertThat(savedProfile.getNodeId()).isEqualTo(77L);
+        assertThat(savedProfile.getUserAuth()).isEqualTo(savedUser);
     }
 }
