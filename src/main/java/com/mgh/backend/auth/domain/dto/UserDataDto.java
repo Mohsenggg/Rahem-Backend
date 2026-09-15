@@ -8,16 +8,16 @@ import lombok.NoArgsConstructor;
 
 import java.util.Set;
 
-    @Data
-    @Builder
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public class UserDataDto {
-        private Long id;
-        private String username;
-        private String email;
-        private String fullName;
-        private String nodeName;
-        private Long nodeId;
-        private Set<Role> roles;
-    }
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class UserDataDto {
+    private Long id;
+    private String username;
+    private String email;
+    private String fullName;
+    private String nodeName;
+    private Long nodeId;
+    private Set<Role> roles;
+}
